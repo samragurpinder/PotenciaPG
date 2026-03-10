@@ -1,0 +1,168 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the PG app (Admin, Cook, Student, Cleaner)",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin", "cook", "student", "cleaner"] },
+        "roomNumber": { "type": "string" },
+        "bedNumber": { "type": "string" },
+        "phone": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "email", "role", "status", "createdAt"]
+    },
+    "Room": {
+      "title": "Room",
+      "description": "A room in the PG",
+      "type": "object",
+      "properties": {
+        "roomNumber": { "type": "string" },
+        "capacity": { "type": "number" },
+        "occupants": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["available", "full", "maintenance"] }
+      },
+      "required": ["roomNumber", "capacity", "occupants", "status"]
+    },
+    "Rent": {
+      "title": "Rent",
+      "description": "Monthly rent record for a student",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "month": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "paid", "overdue"] },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "paidDate": { "type": "string", "format": "date-time" },
+        "lateFee": { "type": "number" }
+      },
+      "required": ["userId", "userName", "month", "amount", "status", "dueDate"]
+    },
+    "Menu": {
+      "title": "Menu",
+      "description": "Daily food menu",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string" },
+        "breakfast": { "type": "string" },
+        "lunch": { "type": "string" },
+        "dinner": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["date", "breakfast", "lunch", "dinner", "updatedBy", "updatedAt"]
+    },
+    "Inventory": {
+      "title": "Inventory",
+      "description": "Kitchen stock item",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "quantity": { "type": "number" },
+        "unit": { "type": "string" },
+        "lowStockThreshold": { "type": "number" },
+        "lastUpdated": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "category", "quantity", "unit", "lowStockThreshold", "lastUpdated"]
+    },
+    "Complaint": {
+      "title": "Complaint",
+      "description": "Student complaint",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "roomNumber": { "type": "string" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["open", "in-progress", "resolved"] },
+        "adminReply": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userName", "roomNumber", "category", "description", "status", "createdAt"]
+    },
+    "Notice": {
+      "title": "Notice",
+      "description": "Announcements from admin",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["title", "content", "createdAt", "createdBy"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Monthly PG expenses",
+      "type": "object",
+      "properties": {
+        "category": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "format": "date-time" },
+        "description": { "type": "string" },
+        "addedBy": { "type": "string" }
+      },
+      "required": ["category", "amount", "date", "description", "addedBy"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "PG group chat message",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderId", "senderName", "text", "timestamp"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "rooms/{roomId}": {
+      "schema": "Room",
+      "description": "PG Rooms"
+    },
+    "rent/{rentId}": {
+      "schema": "Rent",
+      "description": "Rent records"
+    },
+    "menu/{date}": {
+      "schema": "Menu",
+      "description": "Daily menus"
+    },
+    "inventory/{itemId}": {
+      "schema": "Inventory",
+      "description": "Inventory items"
+    },
+    "complaints/{complaintId}": {
+      "schema": "Complaint",
+      "description": "Student complaints"
+    },
+    "notices/{noticeId}": {
+      "schema": "Notice",
+      "description": "Announcements"
+    },
+    "expenses/{expenseId}": {
+      "schema": "Expense",
+      "description": "PG expenses"
+    },
+    "chat/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Group chat messages"
+    }
+  }
+}

@@ -1,0 +1,206 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && (
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'admin') ||
+        (request.auth.token.email == "pinder.60006@gmail.com" && request.auth.token.email_verified == true)
+      );
+    }
+    
+    function isCook() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'cook';
+    }
+    
+    function isStudent() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'student';
+    }
+
+    function hasOnlyAllowedFields(allowedFields) {
+      return request.resource.data.keys().hasOnly(allowedFields);
+    }
+
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == request.auth.uid;
+    }
+
+    function uidNotModified() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == resource.data.uid;
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasOnlyAllowedFields(['uid', 'name', 'email', 'role', 'roomNumber', 'bedNumber', 'phone', 'status', 'createdAt']) &&
+             data.uid is string && data.uid.size() > 0 && data.uid.size() < 100 &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string && data.email.size() > 0 && data.email.size() < 100 &&
+             data.role in ['admin', 'cook', 'student', 'cleaner'] &&
+             data.status in ['active', 'inactive'] &&
+             data.createdAt is string &&
+             (!('roomNumber' in data) || (data.roomNumber is string && data.roomNumber.size() < 20)) &&
+             (!('bedNumber' in data) || (data.bedNumber is string && data.bedNumber.size() < 20)) &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() < 20));
+    }
+
+    function isValidRoom(data) {
+      return hasOnlyAllowedFields(['roomNumber', 'capacity', 'occupants', 'status']) &&
+             data.roomNumber is string && data.roomNumber.size() > 0 && data.roomNumber.size() < 20 &&
+             data.capacity is number && data.capacity > 0 && data.capacity <= 10 &&
+             data.occupants is list && data.occupants.size() <= data.capacity &&
+             data.status in ['available', 'full', 'maintenance'];
+    }
+
+    function isValidRent(data) {
+      return hasOnlyAllowedFields(['userId', 'userName', 'month', 'amount', 'status', 'dueDate', 'paidDate', 'lateFee']) &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() < 100 &&
+             data.userName is string && data.userName.size() > 0 && data.userName.size() < 100 &&
+             data.month is string && data.month.size() > 0 && data.month.size() < 20 &&
+             data.amount is number && data.amount >= 0 &&
+             data.status in ['pending', 'paid', 'overdue'] &&
+             data.dueDate is string &&
+             (!('paidDate' in data) || data.paidDate is string) &&
+             (!('lateFee' in data) || data.lateFee is number);
+    }
+
+    function isValidMenu(data) {
+      return hasOnlyAllowedFields(['date', 'breakfast', 'lunch', 'dinner', 'updatedBy', 'updatedAt']) &&
+             data.date is string && data.date.size() > 0 && data.date.size() < 20 &&
+             data.breakfast is string && data.breakfast.size() < 500 &&
+             data.lunch is string && data.lunch.size() < 500 &&
+             data.dinner is string && data.dinner.size() < 500 &&
+             data.updatedBy is string && data.updatedBy.size() > 0 && data.updatedBy.size() < 100 &&
+             data.updatedAt is string;
+    }
+
+    function isValidInventory(data) {
+      return hasOnlyAllowedFields(['name', 'category', 'quantity', 'unit', 'lowStockThreshold', 'lastUpdated']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.category is string && data.category.size() > 0 && data.category.size() < 50 &&
+             data.quantity is number && data.quantity >= 0 &&
+             data.unit is string && data.unit.size() > 0 && data.unit.size() < 20 &&
+             data.lowStockThreshold is number && data.lowStockThreshold >= 0 &&
+             data.lastUpdated is string;
+    }
+
+    function isValidComplaint(data) {
+      return hasOnlyAllowedFields(['userId', 'userName', 'roomNumber', 'category', 'description', 'status', 'adminReply', 'createdAt']) &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() < 100 &&
+             data.userName is string && data.userName.size() > 0 && data.userName.size() < 100 &&
+             data.roomNumber is string && data.roomNumber.size() < 20 &&
+             data.category is string && data.category.size() > 0 && data.category.size() < 50 &&
+             data.description is string && data.description.size() > 0 && data.description.size() < 1000 &&
+             data.status in ['open', 'in-progress', 'resolved'] &&
+             data.createdAt is string &&
+             (!('adminReply' in data) || (data.adminReply is string && data.adminReply.size() < 1000));
+    }
+
+    function isValidNotice(data) {
+      return hasOnlyAllowedFields(['title', 'content', 'createdAt', 'createdBy']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 2000 &&
+             data.createdAt is string &&
+             data.createdBy is string && data.createdBy.size() > 0 && data.createdBy.size() < 100;
+    }
+
+    function isValidExpense(data) {
+      return hasOnlyAllowedFields(['category', 'amount', 'date', 'description', 'addedBy']) &&
+             data.category is string && data.category.size() > 0 && data.category.size() < 100 &&
+             data.amount is number && data.amount >= 0 &&
+             data.date is string &&
+             data.description is string && data.description.size() < 500 &&
+             data.addedBy is string && data.addedBy.size() > 0 && data.addedBy.size() < 100;
+    }
+
+    function isValidChatMessage(data) {
+      return hasOnlyAllowedFields(['senderId', 'senderName', 'text', 'timestamp']) &&
+             data.senderId is string && data.senderId.size() > 0 && data.senderId.size() < 100 &&
+             data.senderName is string && data.senderName.size() > 0 && data.senderName.size() < 100 &&
+             data.text is string && data.text.size() > 0 && data.text.size() < 1000 &&
+             data.timestamp is string;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated(); // Needed for chat names, etc.
+      // Only admins can create/update roles, except a user creating their own initial 'student' profile
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && uidUnchanged() && (
+        isAdmin() || (isOwner(userId) && request.resource.data.role == 'student')
+      );
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && uidNotModified() && (
+        isAdmin() || (isOwner(userId) && request.resource.data.role == resource.data.role)
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /rooms/{roomId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin() && (!('data' in request.resource) || isValidRoom(request.resource.data));
+    }
+
+    match /rent/{rentId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create, update, delete: if isAdmin() && (!('data' in request.resource) || isValidRent(request.resource.data));
+    }
+
+    match /menu/{date} {
+      allow read: if isAuthenticated();
+      allow create, update: if (isAdmin() || isCook()) && isValidMenu(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /inventory/{itemId} {
+      allow read: if isAdmin() || isCook();
+      allow create, update: if (isAdmin() || isCook()) && isValidInventory(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /complaints/{complaintId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && isValidComplaint(request.resource.data) && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && isValidComplaint(request.resource.data) && (
+        isAdmin() || (resource.data.userId == request.auth.uid && request.resource.data.userId == resource.data.userId)
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /notices/{noticeId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin() && (!('data' in request.resource) || isValidNotice(request.resource.data));
+    }
+
+    match /expenses/{expenseId} {
+      allow read, create, update, delete: if isAdmin() && (!('data' in request.resource) || isValidExpense(request.resource.data));
+    }
+
+    match /chat/{messageId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidChatMessage(request.resource.data) && request.resource.data.senderId == request.auth.uid;
+      allow update: if false; // No editing messages
+      allow delete: if isAdmin();
+    }
+  }
+}
