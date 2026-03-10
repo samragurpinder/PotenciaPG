@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { collection, query, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
+import ConfirmModal from '../../components/ConfirmModal';
 
 export default function Rooms() {
   const [rooms, setRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [newRoom, setNewRoom] = useState({ roomNumber: '', capacity: 2, status: 'available' });
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [roomToDelete, setRoomToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'rooms'));
@@ -39,14 +42,20 @@ export default function Rooms() {
     }
   };
 
-  const handleDelete = async (roomId: string) => {
-    if (window.confirm("Are you sure you want to delete this room?")) {
-      try {
-        await deleteDoc(doc(db, 'rooms', roomId));
-      } catch (error) {
-        console.error("Error deleting room:", error);
-        alert("Failed to delete room");
-      }
+  const confirmDelete = (roomId: string) => {
+    setRoomToDelete(roomId);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!roomToDelete) return;
+    try {
+      await deleteDoc(doc(db, 'rooms', roomToDelete));
+    } catch (error) {
+      console.error("Error deleting room:", error);
+    } finally {
+      setDeleteModalOpen(false);
+      setRoomToDelete(null);
     }
   };
 
@@ -87,7 +96,7 @@ export default function Rooms() {
                     type="number"
                     min="1"
                     required
-                    value={newRoom.capacity}
+                    value={Number.isNaN(newRoom.capacity) ? '' : newRoom.capacity}
                     onChange={(e) => setNewRoom({ ...newRoom, capacity: parseInt(e.target.value) })}
                     className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
                   />
@@ -125,12 +134,22 @@ export default function Rooms() {
                 <p className="text-sm text-gray-500">Occupied: {room.occupants.length} beds</p>
               </div>
               <div className="mt-4 flex justify-end">
-                <button onClick={() => handleDelete(room.id)} className="text-red-600 hover:text-red-900 text-sm font-medium">Delete</button>
+                <button onClick={() => confirmDelete(room.id)} className="text-red-600 hover:text-red-900 text-sm font-medium">Delete</button>
               </div>
             </div>
           </div>
         ))}
       </div>
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        title="Delete Room"
+        message="Are you sure you want to delete this room? This action cannot be undone."
+        onConfirm={handleDelete}
+        onCancel={() => {
+          setDeleteModalOpen(false);
+          setRoomToDelete(null);
+        }}
+      />
     </div>
   );
 }

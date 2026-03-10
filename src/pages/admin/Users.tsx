@@ -1,15 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { collection, query, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { UserProfile } from '../../contexts/AuthContext';
+import { UserProfile, useAuth, Role } from '../../contexts/AuthContext';
+import ConfirmModal from '../../components/ConfirmModal';
 
 export default function Users() {
+  const { registerUser } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [rooms, setRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const [newUser, setNewUser] = useState({
+    name: '',
+    mobile: '',
+    role: 'student' as Role,
+    roomNumber: ''
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<string | null>(null);
 
   useEffect(() => {
-    const q = query(collection(db, 'users'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const qUsers = query(collection(db, 'users'));
+    const unsubUsers = onSnapshot(qUsers, (snapshot) => {
       const usersData: UserProfile[] = [];
       snapshot.forEach((doc) => {
         usersData.push(doc.data() as UserProfile);
@@ -18,8 +31,85 @@ export default function Users() {
       setLoading(false);
     });
 
-    return unsubscribe;
+    const qRooms = query(collection(db, 'rooms'));
+    const unsubRooms = onSnapshot(qRooms, (snapshot) => {
+      const roomsData: any[] = [];
+      snapshot.forEach((doc) => {
+        roomsData.push({ id: doc.id, ...doc.data() });
+      });
+      setRooms(roomsData);
+    });
+
+    return () => {
+      unsubUsers();
+      unsubRooms();
+    };
   }, []);
+
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUser.name || !newUser.mobile || newUser.mobile.length < 5) {
+      alert("Please provide a valid name and mobile number (at least 5 digits).");
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      if (newUser.role === 'student' && newUser.roomNumber) {
+        const room = rooms.find(r => r.roomNumber === newUser.roomNumber);
+        if (room && (room.occupants || []).length >= room.capacity) {
+          alert("Selected room is already full. Please select another room.");
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      const baseName = newUser.name.toLowerCase().replace(/\s+/g, '');
+      let username = '';
+      
+      if (newUser.role === 'student') {
+        // Find highest running number for this base name
+        const similarUsers = users.filter(u => u.email.startsWith(baseName) && u.email.includes('@'));
+        let maxNum = 0;
+        similarUsers.forEach(u => {
+          const match = u.email.match(new RegExp(`^${baseName}(\\d+)@`));
+          if (match && match[1]) {
+            const num = parseInt(match[1], 10);
+            if (num > maxNum) maxNum = num;
+          }
+        });
+        const nextNum = (maxNum + 1).toString().padStart(3, '0');
+        username = `${baseName}${nextNum}@smartpg.com`;
+      } else {
+        username = `${baseName}@smartpg.com`;
+      }
+
+      const password = `${baseName}${newUser.mobile.substring(0, 5)}`;
+      
+      const uid = await registerUser(username, password, newUser.name, newUser.role, newUser.roomNumber, newUser.mobile);
+      
+      if (newUser.role === 'student' && newUser.roomNumber) {
+        const roomRef = doc(db, 'rooms', newUser.roomNumber);
+        const room = rooms.find(r => r.roomNumber === newUser.roomNumber);
+        if (room) {
+          const newOccupants = [...(room.occupants || []), uid];
+          await updateDoc(roomRef, { 
+            occupants: newOccupants,
+            status: newOccupants.length >= room.capacity ? 'full' : 'available'
+          });
+        }
+      }
+
+      const displayUsername = username.split('@')[0];
+      alert(`User created successfully!\nUsername: ${displayUsername}\nPassword: ${password}`);
+      setNewUser({ name: '', mobile: '', role: 'student', roomNumber: '' });
+    } catch (error: any) {
+      console.error("Error adding user:", error);
+      alert(error.message || "Failed to add user");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleRoleChange = async (uid: string, newRole: string) => {
     try {
@@ -39,14 +129,34 @@ export default function Users() {
     }
   };
 
-  const handleDelete = async (uid: string) => {
-    if (window.confirm("Are you sure you want to delete this user?")) {
-      try {
-        await deleteDoc(doc(db, 'users', uid));
-      } catch (error) {
-        console.error("Error deleting user:", error);
-        alert("Failed to delete user");
+  const confirmDelete = (uid: string) => {
+    setUserToDelete(uid);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!userToDelete) return;
+    const uid = userToDelete;
+    
+    try {
+      const user = users.find(u => u.uid === uid);
+      if (user?.roomNumber) {
+        const roomRef = doc(db, 'rooms', user.roomNumber);
+        const room = rooms.find(r => r.roomNumber === user.roomNumber);
+        if (room) {
+          const newOccupants = (room.occupants || []).filter((id: string) => id !== uid);
+          await updateDoc(roomRef, { 
+            occupants: newOccupants,
+            status: newOccupants.length >= room.capacity ? 'full' : 'available'
+          });
+        }
       }
+      await deleteDoc(doc(db, 'users', uid));
+    } catch (error) {
+      console.error("Error deleting user:", error);
+    } finally {
+      setDeleteModalOpen(false);
+      setUserToDelete(null);
     }
   };
 
@@ -60,6 +170,88 @@ export default function Users() {
           <p className="mt-2 text-sm text-gray-700">A list of all users in the PG including their name, role, and status.</p>
         </div>
       </div>
+      <div className="mt-8 bg-white shadow sm:rounded-lg mb-8">
+        <div className="px-4 py-5 sm:p-6">
+          <h3 className="text-lg leading-6 font-medium text-gray-900">Add New User</h3>
+          <div className="mt-2 max-w-xl text-sm text-gray-500">
+            <p>Password will be auto-generated as: [name in lowercase] + [first 5 digits of mobile].</p>
+            <p>Student username will be: [name in lowercase] + [001, 002, etc].</p>
+          </div>
+          <form onSubmit={handleAddUser} className="mt-5">
+            <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+              <div className="sm:col-span-3">
+                <label className="block text-sm font-medium text-gray-700">Full Name</label>
+                <div className="mt-1">
+                  <input
+                    type="text"
+                    required
+                    value={newUser.name}
+                    onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                    className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                  />
+                </div>
+              </div>
+
+              <div className="sm:col-span-3">
+                <label className="block text-sm font-medium text-gray-700">Mobile Number</label>
+                <div className="mt-1">
+                  <input
+                    type="text"
+                    required
+                    value={newUser.mobile}
+                    onChange={(e) => setNewUser({ ...newUser, mobile: e.target.value })}
+                    className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                  />
+                </div>
+              </div>
+
+              <div className="sm:col-span-3">
+                <label className="block text-sm font-medium text-gray-700">Role</label>
+                <div className="mt-1">
+                  <select
+                    value={newUser.role}
+                    onChange={(e) => setNewUser({ ...newUser, role: e.target.value as Role })}
+                    className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                  >
+                    <option value="student">Student</option>
+                    <option value="warden">Warden</option>
+                    <option value="cook">Cook</option>
+                    <option value="cleaner">Cleaner</option>
+                  </select>
+                </div>
+              </div>
+
+              {newUser.role === 'student' && (
+                <div className="sm:col-span-3">
+                  <label className="block text-sm font-medium text-gray-700">Assign Room</label>
+                  <div className="mt-1">
+                    <select
+                      value={newUser.roomNumber}
+                      onChange={(e) => setNewUser({ ...newUser, roomNumber: e.target.value })}
+                      className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    >
+                      <option value="">Select a room (optional)</option>
+                      {rooms.map(room => (
+                        <option key={room.id} value={room.roomNumber}>Room {room.roomNumber} ({room.occupants?.length || 0}/{room.capacity})</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="mt-5">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="inline-flex items-center justify-center px-4 py-2 border border-transparent font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm disabled:opacity-50"
+              >
+                {isSubmitting ? 'Adding...' : 'Add User'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
       <div className="mt-8 flex flex-col">
         <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
           <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
@@ -69,6 +261,7 @@ export default function Users() {
                   <tr>
                     <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Name</th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Email</th>
+                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Mobile</th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Role</th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
                     <th className="relative py-3.5 pl-3 pr-4 sm:pr-6"><span className="sr-only">Actions</span></th>
@@ -79,6 +272,7 @@ export default function Users() {
                     <tr key={user.uid}>
                       <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">{user.name}</td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{user.email}</td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{user.phone || 'N/A'}</td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                         <select
                           value={user.role}
@@ -102,7 +296,7 @@ export default function Users() {
                         </select>
                       </td>
                       <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                        <button onClick={() => handleDelete(user.uid)} className="text-red-600 hover:text-red-900">Delete</button>
+                        <button onClick={() => confirmDelete(user.uid)} className="text-red-600 hover:text-red-900">Delete</button>
                       </td>
                     </tr>
                   ))}
@@ -112,6 +306,16 @@ export default function Users() {
           </div>
         </div>
       </div>
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        title="Delete User"
+        message="Are you sure you want to delete this user? This action cannot be undone."
+        onConfirm={handleDelete}
+        onCancel={() => {
+          setDeleteModalOpen(false);
+          setUserToDelete(null);
+        }}
+      />
     </div>
   );
 }

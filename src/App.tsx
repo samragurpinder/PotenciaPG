@@ -16,6 +16,7 @@ import Menu from './pages/cook/Menu';
 import Inventory from './pages/cook/Inventory';
 import Chat from './pages/Chat';
 import Layout from './components/Layout';
+import WardenDashboard from './pages/warden/WardenDashboard';
 
 function PrivateRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles: string[] }) {
   const { currentUser, userProfile, loading } = useAuth();
@@ -37,12 +38,13 @@ function AppRoutes() {
       <Route path="/login" element={!currentUser ? <Login /> : <Navigate to="/" />} />
       
       <Route path="/" element={
-        <PrivateRoute allowedRoles={['admin', 'cook', 'student', 'cleaner']}>
+        <PrivateRoute allowedRoles={['admin', 'warden', 'cook', 'student', 'cleaner']}>
           <Layout />
         </PrivateRoute>
       }>
         <Route index element={
           userProfile?.role === 'admin' ? <AdminDashboard /> :
+          userProfile?.role === 'warden' ? <WardenDashboard /> :
           userProfile?.role === 'cook' ? <CookDashboard /> :
           userProfile?.role === 'student' ? <StudentDashboard /> :
           <div>Dashboard not available for this role.</div>
@@ -50,10 +52,12 @@ function AppRoutes() {
         
         {/* Admin Routes */}
         <Route path="users" element={<PrivateRoute allowedRoles={['admin']}><Users /></PrivateRoute>} />
-        <Route path="rooms" element={<PrivateRoute allowedRoles={['admin']}><Rooms /></PrivateRoute>} />
         <Route path="rent" element={<PrivateRoute allowedRoles={['admin']}><Rent /></PrivateRoute>} />
-        <Route path="complaints" element={<PrivateRoute allowedRoles={['admin']}><Complaints /></PrivateRoute>} />
-        <Route path="notices" element={<PrivateRoute allowedRoles={['admin']}><Notices /></PrivateRoute>} />
+        
+        {/* Admin & Warden Routes */}
+        <Route path="rooms" element={<PrivateRoute allowedRoles={['admin', 'warden']}><Rooms /></PrivateRoute>} />
+        <Route path="complaints" element={<PrivateRoute allowedRoles={['admin', 'warden']}><Complaints /></PrivateRoute>} />
+        <Route path="notices" element={<PrivateRoute allowedRoles={['admin', 'warden']}><Notices /></PrivateRoute>} />
         
         {/* Cook & Admin Routes */}
         <Route path="kitchen" element={<PrivateRoute allowedRoles={['admin', 'cook']}><Menu /></PrivateRoute>} />
@@ -65,7 +69,7 @@ function AppRoutes() {
         <Route path="my-complaints" element={<PrivateRoute allowedRoles={['student']}><MyComplaints /></PrivateRoute>} />
         
         {/* Shared Routes */}
-        <Route path="chat" element={<PrivateRoute allowedRoles={['admin', 'student']}><Chat /></PrivateRoute>} />
+        <Route path="chat" element={<PrivateRoute allowedRoles={['admin', 'warden', 'student']}><Chat /></PrivateRoute>} />
       </Route>
     </Routes>
   );

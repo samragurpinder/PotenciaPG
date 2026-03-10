@@ -22,7 +22,8 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() && (
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'admin') ||
-        (request.auth.token.email == "pinder.60006@gmail.com" && request.auth.token.email_verified == true)
+        (('email' in request.auth.token) && request.auth.token.email == "pinder.60006@gmail.com") ||
+        (('email' in request.auth.token) && request.auth.token.email == "pgadmin@gmail.com")
       );
     }
     
@@ -34,12 +35,16 @@ service cloud.firestore {
       return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'student';
     }
 
+    function isWarden() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'warden';
+    }
+
     function hasOnlyAllowedFields(allowedFields) {
       return request.resource.data.keys().hasOnly(allowedFields);
     }
 
-    function uidUnchanged() {
-      return !('uid' in request.resource.data) || request.resource.data.uid == request.auth.uid;
+    function uidUnchanged(userId) {
+      return !('uid' in request.resource.data) || request.resource.data.uid == userId;
     }
 
     function uidNotModified() {
@@ -55,7 +60,7 @@ service cloud.firestore {
              data.uid is string && data.uid.size() > 0 && data.uid.size() < 100 &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              data.email is string && data.email.size() > 0 && data.email.size() < 100 &&
-             data.role in ['admin', 'cook', 'student', 'cleaner'] &&
+             data.role in ['admin', 'warden', 'cook', 'student', 'cleaner'] &&
              data.status in ['active', 'inactive'] &&
              data.createdAt is string &&
              (!('roomNumber' in data) || (data.roomNumber is string && data.roomNumber.size() < 20)) &&
@@ -64,19 +69,24 @@ service cloud.firestore {
     }
 
     function isValidRoom(data) {
-      return hasOnlyAllowedFields(['roomNumber', 'capacity', 'occupants', 'status']) &&
+      return hasOnlyAllowedFields(['roomNumber', 'capacity', 'occupants', 'status', 'createdAt']) &&
              data.roomNumber is string && data.roomNumber.size() > 0 && data.roomNumber.size() < 20 &&
              data.capacity is number && data.capacity > 0 && data.capacity <= 10 &&
              data.occupants is list && data.occupants.size() <= data.capacity &&
-             data.status in ['available', 'full', 'maintenance'];
+             data.status in ['available', 'full', 'maintenance'] &&
+             (!('createdAt' in data) || data.createdAt is string);
     }
 
     function isValidRent(data) {
-      return hasOnlyAllowedFields(['userId', 'userName', 'month', 'amount', 'status', 'dueDate', 'paidDate', 'lateFee']) &&
+      return hasOnlyAllowedFields(['userId', 'userName', 'month', 'amount', 'basicRent', 'electricity', 'otherAmount', 'otherDescription', 'status', 'dueDate', 'paidDate', 'lateFee']) &&
              data.userId is string && data.userId.size() > 0 && data.userId.size() < 100 &&
              data.userName is string && data.userName.size() > 0 && data.userName.size() < 100 &&
              data.month is string && data.month.size() > 0 && data.month.size() < 20 &&
              data.amount is number && data.amount >= 0 &&
+             (!('basicRent' in data) || data.basicRent is number) &&
+             (!('electricity' in data) || data.electricity is number) &&
+             (!('otherAmount' in data) || data.otherAmount is number) &&
+             (!('otherDescription' in data) || data.otherDescription is string) &&
              data.status in ['pending', 'paid', 'overdue'] &&
              data.dueDate is string &&
              (!('paidDate' in data) || data.paidDate is string) &&
@@ -147,7 +157,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isAuthenticated(); // Needed for chat names, etc.
       // Only admins can create/update roles, except a user creating their own initial 'student' profile
-      allow create: if isAuthenticated() && isValidUser(request.resource.data) && uidUnchanged() && (
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && uidUnchanged(userId) && (
         isAdmin() || (isOwner(userId) && request.resource.data.role == 'student')
       );
       allow update: if isAuthenticated() && isValidUser(request.resource.data) && uidNotModified() && (
@@ -158,12 +168,14 @@ service cloud.firestore {
 
     match /rooms/{roomId} {
       allow read: if isAuthenticated();
-      allow create, update, delete: if isAdmin() && (!('data' in request.resource) || isValidRoom(request.resource.data));
+      allow create, delete: if isAdmin();
+      allow update: if (isAdmin() || isWarden()) && isValidRoom(request.resource.data);
     }
 
     match /rent/{rentId} {
       allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
-      allow create, update, delete: if isAdmin() && (!('data' in request.resource) || isValidRent(request.resource.data));
+      allow delete: if isAdmin();
+      allow create, update: if isAdmin() && isValidRent(request.resource.data);
     }
 
     match /menu/{date} {
@@ -179,21 +191,23 @@ service cloud.firestore {
     }
 
     match /complaints/{complaintId} {
-      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow read: if isAdmin() || isWarden() || (isAuthenticated() && resource.data.userId == request.auth.uid);
       allow create: if isAuthenticated() && isValidComplaint(request.resource.data) && request.resource.data.userId == request.auth.uid;
       allow update: if isAuthenticated() && isValidComplaint(request.resource.data) && (
-        isAdmin() || (resource.data.userId == request.auth.uid && request.resource.data.userId == resource.data.userId)
+        isAdmin() || isWarden() || (resource.data.userId == request.auth.uid && request.resource.data.userId == resource.data.userId)
       );
       allow delete: if isAdmin();
     }
 
     match /notices/{noticeId} {
       allow read: if isAuthenticated();
-      allow create, update, delete: if isAdmin() && (!('data' in request.resource) || isValidNotice(request.resource.data));
+      allow delete: if isAdmin() || isWarden();
+      allow create, update: if (isAdmin() || isWarden()) && isValidNotice(request.resource.data);
     }
 
     match /expenses/{expenseId} {
-      allow read, create, update, delete: if isAdmin() && (!('data' in request.resource) || isValidExpense(request.resource.data));
+      allow read, delete: if isAdmin();
+      allow create, update: if isAdmin() && isValidExpense(request.resource.data);
     }
 
     match /chat/{messageId} {

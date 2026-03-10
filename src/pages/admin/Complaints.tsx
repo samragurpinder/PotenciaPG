@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { collection, query, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
+import ConfirmModal from '../../components/ConfirmModal';
 
 export default function Complaints() {
   const [complaints, setComplaints] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [complaintToDelete, setComplaintToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'complaints'));
@@ -42,14 +45,20 @@ export default function Complaints() {
     }
   };
 
-  const handleDelete = async (complaintId: string) => {
-    if (window.confirm("Are you sure you want to delete this complaint?")) {
-      try {
-        await deleteDoc(doc(db, 'complaints', complaintId));
-      } catch (error) {
-        console.error("Error deleting complaint:", error);
-        alert("Failed to delete complaint");
-      }
+  const confirmDelete = (complaintId: string) => {
+    setComplaintToDelete(complaintId);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!complaintToDelete) return;
+    try {
+      await deleteDoc(doc(db, 'complaints', complaintToDelete));
+    } catch (error) {
+      console.error("Error deleting complaint:", error);
+    } finally {
+      setDeleteModalOpen(false);
+      setComplaintToDelete(null);
     }
   };
 
@@ -112,7 +121,7 @@ export default function Complaints() {
               </dl>
             </div>
             <div className="bg-gray-50 px-4 py-3 sm:px-6 flex justify-end">
-              <button onClick={() => handleDelete(complaint.id)} className="text-red-600 hover:text-red-900 text-sm font-medium">Delete Complaint</button>
+              <button onClick={() => confirmDelete(complaint.id)} className="text-red-600 hover:text-red-900 text-sm font-medium">Delete Complaint</button>
             </div>
           </div>
         ))}
@@ -120,6 +129,16 @@ export default function Complaints() {
           <p className="text-gray-500 text-center py-4">No complaints found.</p>
         )}
       </div>
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        title="Delete Complaint"
+        message="Are you sure you want to delete this complaint? This action cannot be undone."
+        onConfirm={handleDelete}
+        onCancel={() => {
+          setDeleteModalOpen(false);
+          setComplaintToDelete(null);
+        }}
+      />
     </div>
   );
 }

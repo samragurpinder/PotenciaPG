@@ -2,12 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { collection, query, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
+import ConfirmModal from '../../components/ConfirmModal';
 
 export default function Notices() {
   const { userProfile } = useAuth();
   const [notices, setNotices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [newNotice, setNewNotice] = useState({ title: '', content: '' });
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [noticeToDelete, setNoticeToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'notices'));
@@ -41,14 +44,20 @@ export default function Notices() {
     }
   };
 
-  const handleDelete = async (noticeId: string) => {
-    if (window.confirm("Are you sure you want to delete this notice?")) {
-      try {
-        await deleteDoc(doc(db, 'notices', noticeId));
-      } catch (error) {
-        console.error("Error deleting notice:", error);
-        alert("Failed to delete notice");
-      }
+  const confirmDelete = (noticeId: string) => {
+    setNoticeToDelete(noticeId);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!noticeToDelete) return;
+    try {
+      await deleteDoc(doc(db, 'notices', noticeToDelete));
+    } catch (error) {
+      console.error("Error deleting notice:", error);
+    } finally {
+      setDeleteModalOpen(false);
+      setNoticeToDelete(null);
     }
   };
 
@@ -118,7 +127,7 @@ export default function Notices() {
                   Posted by {notice.createdBy} on {new Date(notice.createdAt).toLocaleString()}
                 </p>
               </div>
-              <button onClick={() => handleDelete(notice.id)} className="text-red-600 hover:text-red-900 text-sm font-medium">Delete</button>
+              <button onClick={() => confirmDelete(notice.id)} className="text-red-600 hover:text-red-900 text-sm font-medium">Delete</button>
             </div>
             <div className="mt-4 text-sm text-gray-900 whitespace-pre-wrap">
               {notice.content}
@@ -129,6 +138,16 @@ export default function Notices() {
           <p className="text-gray-500 text-center py-4">No notices found.</p>
         )}
       </div>
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        title="Delete Notice"
+        message="Are you sure you want to delete this notice? This action cannot be undone."
+        onConfirm={handleDelete}
+        onCancel={() => {
+          setDeleteModalOpen(false);
+          setNoticeToDelete(null);
+        }}
+      />
     </div>
   );
 }

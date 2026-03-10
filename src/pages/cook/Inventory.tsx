@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { collection, query, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
+import ConfirmModal from '../../components/ConfirmModal';
 
 export default function Inventory() {
   const [inventory, setInventory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [newItem, setNewItem] = useState({ name: '', category: 'grocery', quantity: 0, unit: 'kg', lowStockThreshold: 5 });
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'inventory'));
@@ -42,6 +45,7 @@ export default function Inventory() {
   };
 
   const handleUpdateQuantity = async (itemId: string, newQuantity: number) => {
+    if (Number.isNaN(newQuantity)) return;
     try {
       await updateDoc(doc(db, 'inventory', itemId), {
         quantity: newQuantity,
@@ -53,14 +57,20 @@ export default function Inventory() {
     }
   };
 
-  const handleDelete = async (itemId: string) => {
-    if (window.confirm("Are you sure you want to delete this item?")) {
-      try {
-        await deleteDoc(doc(db, 'inventory', itemId));
-      } catch (error) {
-        console.error("Error deleting item:", error);
-        alert("Failed to delete item");
-      }
+  const confirmDelete = (itemId: string) => {
+    setItemToDelete(itemId);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!itemToDelete) return;
+    try {
+      await deleteDoc(doc(db, 'inventory', itemToDelete));
+    } catch (error) {
+      console.error("Error deleting item:", error);
+    } finally {
+      setDeleteModalOpen(false);
+      setItemToDelete(null);
     }
   };
 
@@ -118,7 +128,7 @@ export default function Inventory() {
                     min="0"
                     step="0.1"
                     required
-                    value={newItem.quantity}
+                    value={Number.isNaN(newItem.quantity) ? '' : newItem.quantity}
                     onChange={(e) => setNewItem({ ...newItem, quantity: parseFloat(e.target.value) })}
                     className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
                   />
@@ -141,7 +151,7 @@ export default function Inventory() {
                     min="0"
                     step="0.1"
                     required
-                    value={newItem.lowStockThreshold}
+                    value={Number.isNaN(newItem.lowStockThreshold) ? '' : newItem.lowStockThreshold}
                     onChange={(e) => setNewItem({ ...newItem, lowStockThreshold: parseFloat(e.target.value) })}
                     className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
                   />
@@ -186,7 +196,7 @@ export default function Inventory() {
                             type="number"
                             min="0"
                             step="0.1"
-                            value={item.quantity}
+                            value={Number.isNaN(item.quantity) ? '' : item.quantity}
                             onChange={(e) => handleUpdateQuantity(item.id, parseFloat(e.target.value))}
                             className="block w-20 shadow-sm sm:text-sm border-gray-300 rounded-md"
                           />
@@ -205,7 +215,7 @@ export default function Inventory() {
                         )}
                       </td>
                       <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                        <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:text-red-900">Delete</button>
+                        <button onClick={() => confirmDelete(item.id)} className="text-red-600 hover:text-red-900">Delete</button>
                       </td>
                     </tr>
                   ))}
@@ -215,6 +225,16 @@ export default function Inventory() {
           </div>
         </div>
       </div>
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        title="Delete Item"
+        message="Are you sure you want to delete this item? This action cannot be undone."
+        onConfirm={handleDelete}
+        onCancel={() => {
+          setDeleteModalOpen(false);
+          setItemToDelete(null);
+        }}
+      />
     </div>
   );
 }

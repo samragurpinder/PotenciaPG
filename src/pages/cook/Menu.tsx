@@ -2,12 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { collection, query, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
+import ConfirmModal from '../../components/ConfirmModal';
 
 export default function Menu() {
   const { userProfile } = useAuth();
   const [menus, setMenus] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [newMenu, setNewMenu] = useState({ date: new Date().toISOString().slice(0, 10), breakfast: '', lunch: '', dinner: '' });
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [menuToDelete, setMenuToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'menu'));
@@ -42,14 +45,20 @@ export default function Menu() {
     }
   };
 
-  const handleDelete = async (date: string) => {
-    if (window.confirm("Are you sure you want to delete this menu?")) {
-      try {
-        await deleteDoc(doc(db, 'menu', date));
-      } catch (error) {
-        console.error("Error deleting menu:", error);
-        alert("Failed to delete menu");
-      }
+  const confirmDelete = (date: string) => {
+    setMenuToDelete(date);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!menuToDelete) return;
+    try {
+      await deleteDoc(doc(db, 'menu', menuToDelete));
+    } catch (error) {
+      console.error("Error deleting menu:", error);
+    } finally {
+      setDeleteModalOpen(false);
+      setMenuToDelete(null);
     }
   };
 
@@ -140,7 +149,7 @@ export default function Menu() {
                 </p>
               </div>
               {userProfile?.role === 'admin' && (
-                <button onClick={() => handleDelete(menu.id)} className="text-red-600 hover:text-red-900 text-sm font-medium">Delete</button>
+                <button onClick={() => confirmDelete(menu.id)} className="text-red-600 hover:text-red-900 text-sm font-medium">Delete</button>
               )}
             </div>
             <div className="mt-4 space-y-2 text-sm text-gray-900">
@@ -154,6 +163,16 @@ export default function Menu() {
           <p className="text-gray-500 text-center py-4 col-span-full">No menus found.</p>
         )}
       </div>
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        title="Delete Menu"
+        message="Are you sure you want to delete this menu? This action cannot be undone."
+        onConfirm={handleDelete}
+        onCancel={() => {
+          setDeleteModalOpen(false);
+          setMenuToDelete(null);
+        }}
+      />
     </div>
   );
 }

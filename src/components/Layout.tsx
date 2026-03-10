@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, Home, Users, Bed, CreditCard, Utensils, ClipboardList, MessageSquare, Bell } from 'lucide-react';
+import { LogOut, Home, Users, Bed, CreditCard, Utensils, ClipboardList, MessageSquare, Bell, ShieldCheck } from 'lucide-react';
 import clsx from 'clsx';
 
 export default function Layout() {
@@ -14,6 +14,13 @@ export default function Layout() {
     { name: 'Rooms', href: '/rooms', icon: Bed },
     { name: 'Rent', href: '/rent', icon: CreditCard },
     { name: 'Menu & Inventory', href: '/kitchen', icon: Utensils },
+    { name: 'Complaints', href: '/complaints', icon: ClipboardList },
+    { name: 'Notices', href: '/notices', icon: Bell },
+  ];
+
+  const wardenLinks = [
+    { name: 'Dashboard', href: '/', icon: Home },
+    { name: 'Rooms', href: '/rooms', icon: Bed },
     { name: 'Complaints', href: '/complaints', icon: ClipboardList },
     { name: 'Notices', href: '/notices', icon: Bell },
   ];
@@ -32,35 +39,38 @@ export default function Layout() {
   ];
 
   const links = userProfile?.role === 'admin' ? adminLinks :
+                userProfile?.role === 'warden' ? wardenLinks :
                 userProfile?.role === 'student' ? studentLinks :
                 userProfile?.role === 'cook' ? cookLinks : [];
 
   return (
-    <div className="min-h-screen bg-gray-100 flex">
+    <div className="min-h-screen bg-gray-50 flex font-sans">
       {/* Sidebar */}
-      <div className="w-64 bg-white shadow-md flex flex-col">
-        <div className="h-16 flex items-center px-6 border-b border-gray-200">
-          <h1 className="text-xl font-bold text-indigo-600">Smart PG</h1>
+      <div className="w-72 bg-indigo-900 text-white shadow-xl flex flex-col">
+        <div className="h-20 flex items-center px-8 border-b border-indigo-800">
+          <ShieldCheck className="w-8 h-8 text-indigo-400 mr-3" />
+          <h1 className="text-2xl font-bold tracking-tight">Smart PG</h1>
         </div>
-        <div className="flex-1 overflow-y-auto py-4">
-          <nav className="px-2 space-y-1">
+        <div className="flex-1 overflow-y-auto py-6">
+          <nav className="px-4 space-y-2">
             {links.map((item) => {
               const Icon = item.icon;
+              const isActive = location.pathname === item.href;
               return (
                 <Link
                   key={item.name}
                   to={item.href}
                   className={clsx(
-                    location.pathname === item.href
-                      ? 'bg-indigo-50 text-indigo-600'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-                    'group flex items-center px-2 py-2 text-sm font-medium rounded-md'
+                    isActive
+                      ? 'bg-indigo-800 text-white shadow-sm'
+                      : 'text-indigo-200 hover:bg-indigo-800/50 hover:text-white',
+                    'group flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200'
                   )}
                 >
                   <Icon
                     className={clsx(
-                      location.pathname === item.href ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-500',
-                      'mr-3 flex-shrink-0 h-5 w-5'
+                      isActive ? 'text-indigo-300' : 'text-indigo-400 group-hover:text-indigo-300',
+                      'mr-4 flex-shrink-0 h-5 w-5 transition-colors'
                     )}
                     aria-hidden="true"
                   />
@@ -70,29 +80,35 @@ export default function Layout() {
             })}
           </nav>
         </div>
-        <div className="p-4 border-t border-gray-200">
-          <div className="flex items-center mb-4">
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-700">{userProfile?.name}</p>
-              <p className="text-xs font-medium text-gray-500 capitalize">{userProfile?.role}</p>
+        <div className="p-6 border-t border-indigo-800 bg-indigo-950/30">
+          <div className="flex items-center mb-6">
+            <div className="h-10 w-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-inner">
+              {userProfile?.name?.charAt(0).toUpperCase() || 'U'}
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-semibold text-white">{userProfile?.name}</p>
+              <p className="text-xs font-medium text-indigo-300 capitalize">{userProfile?.role}</p>
             </div>
           </div>
           <button
             onClick={logout}
-            className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            className="w-full flex items-center justify-center px-4 py-2.5 border border-indigo-700 rounded-xl shadow-sm text-sm font-medium text-indigo-100 bg-indigo-800 hover:bg-indigo-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-indigo-900 transition-all"
           >
             <LogOut className="mr-2 h-4 w-4" />
-            Logout
+            Sign Out
           </button>
         </div>
       </div>
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto bg-gray-100 p-6">
-          <Outlet />
+        <main className="flex-1 overflow-y-auto p-8">
+          <div className="max-w-7xl mx-auto">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>
   );
 }
+

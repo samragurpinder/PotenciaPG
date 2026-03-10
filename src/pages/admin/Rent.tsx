@@ -1,12 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import { collection, query, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, where } from 'firebase/firestore';
 import { db } from '../../firebase';
+import ConfirmModal from '../../components/ConfirmModal';
 
 export default function Rent() {
   const [rentRecords, setRentRecords] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newRent, setNewRent] = useState({ userId: '', month: new Date().toISOString().slice(0, 7), amount: 5000, dueDate: new Date().toISOString().slice(0, 10) });
+  const [newRent, setNewRent] = useState({ 
+    userId: '', 
+    month: new Date().toISOString().slice(0, 7), 
+    basicRent: 5000,
+    electricity: 0,
+    otherAmount: 0,
+    otherDescription: '',
+    dueDate: new Date().toISOString().slice(0, 10) 
+  });
+  const [selectedStudentFilter, setSelectedStudentFilter] = useState<string>('');
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [rentToDelete, setRentToDelete] = useState<string | null>(null);
+  const [deleteAllModalOpen, setDeleteAllModalOpen] = useState(false);
 
   useEffect(() => {
     // Fetch students
@@ -44,11 +57,16 @@ export default function Rent() {
 
     try {
       const rentId = `${newRent.userId}_${newRent.month}`;
+      const totalAmount = Number(newRent.basicRent) + Number(newRent.electricity) + Number(newRent.otherAmount);
       await setDoc(doc(db, 'rent', rentId), {
         userId: newRent.userId,
         userName: student.name,
         month: newRent.month,
-        amount: Number(newRent.amount),
+        amount: totalAmount,
+        basicRent: Number(newRent.basicRent),
+        electricity: Number(newRent.electricity),
+        otherAmount: Number(newRent.otherAmount),
+        otherDescription: newRent.otherDescription,
         status: 'pending',
         dueDate: new Date(newRent.dueDate).toISOString()
       });
@@ -72,16 +90,47 @@ export default function Rent() {
     }
   };
 
-  const handleDelete = async (rentId: string) => {
-    if (window.confirm("Are you sure you want to delete this rent record?")) {
-      try {
-        await deleteDoc(doc(db, 'rent', rentId));
-      } catch (error) {
-        console.error("Error deleting rent:", error);
-        alert("Failed to delete rent record");
-      }
+  const confirmDelete = (rentId: string) => {
+    setRentToDelete(rentId);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!rentToDelete) return;
+    try {
+      await deleteDoc(doc(db, 'rent', rentToDelete));
+    } catch (error) {
+      console.error("Error deleting rent:", error);
+    } finally {
+      setDeleteModalOpen(false);
+      setRentToDelete(null);
     }
   };
+
+  const confirmDeleteAll = () => {
+    if (!selectedStudentFilter) return;
+    setDeleteAllModalOpen(true);
+  };
+
+  const handleDeleteAllForStudent = async () => {
+    if (!selectedStudentFilter) {
+      return;
+    }
+    try {
+      const studentRecords = rentRecords.filter(r => r.userId === selectedStudentFilter);
+      for (const record of studentRecords) {
+        await deleteDoc(doc(db, 'rent', record.id));
+      }
+    } catch (error) {
+      console.error("Error deleting rent history:", error);
+    } finally {
+      setDeleteAllModalOpen(false);
+    }
+  };
+
+  const filteredRecords = selectedStudentFilter 
+    ? rentRecords.filter(r => r.userId === selectedStudentFilter)
+    : rentRecords;
 
   if (loading) return <div>Loading...</div>;
 
@@ -129,13 +178,45 @@ export default function Rent() {
                   />
                 </div>
                 <div className="col-span-6 sm:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700">Amount (₹)</label>
+                  <label className="block text-sm font-medium text-gray-700">Basic Rent (₹)</label>
                   <input
                     type="number"
                     min="0"
                     required
-                    value={newRent.amount}
-                    onChange={(e) => setNewRent({ ...newRent, amount: parseInt(e.target.value) })}
+                    value={Number.isNaN(newRent.basicRent) ? '' : newRent.basicRent}
+                    onChange={(e) => setNewRent({ ...newRent, basicRent: parseInt(e.target.value) })}
+                    className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                  />
+                </div>
+                <div className="col-span-6 sm:col-span-3">
+                  <label className="block text-sm font-medium text-gray-700">Electricity (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={Number.isNaN(newRent.electricity) ? '' : newRent.electricity}
+                    onChange={(e) => setNewRent({ ...newRent, electricity: parseInt(e.target.value) })}
+                    className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                  />
+                </div>
+                <div className="col-span-6 sm:col-span-3">
+                  <label className="block text-sm font-medium text-gray-700">Other Amount (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={Number.isNaN(newRent.otherAmount) ? '' : newRent.otherAmount}
+                    onChange={(e) => setNewRent({ ...newRent, otherAmount: parseInt(e.target.value) })}
+                    className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                  />
+                </div>
+                <div className="col-span-6 sm:col-span-3">
+                  <label className="block text-sm font-medium text-gray-700">Other Description</label>
+                  <input
+                    type="text"
+                    value={newRent.otherDescription}
+                    onChange={(e) => setNewRent({ ...newRent, otherDescription: e.target.value })}
+                    placeholder="e.g., Maintenance, Fine"
                     className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
                   />
                 </div>
@@ -165,6 +246,29 @@ export default function Rent() {
 
       {/* Rent Records List */}
       <div className="mt-8 flex flex-col">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <label className="text-sm font-medium text-gray-700">Filter by Student:</label>
+            <select
+              value={selectedStudentFilter}
+              onChange={(e) => setSelectedStudentFilter(e.target.value)}
+              className="block w-64 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+            >
+              <option value="">All Students</option>
+              {students.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+          {selectedStudentFilter && (
+            <button
+              onClick={confirmDeleteAll}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
+            >
+              Delete All History for Student
+            </button>
+          )}
+        </div>
         <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
           <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
             <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
@@ -180,11 +284,17 @@ export default function Rent() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
-                  {rentRecords.map((record) => (
+                  {filteredRecords.map((record) => (
                     <tr key={record.id}>
                       <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">{record.userName}</td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{record.month}</td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">₹{record.amount}</td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        ₹{record.amount}
+                        <div className="text-xs text-gray-400">
+                          Basic: ₹{record.basicRent || 0} | Elec: ₹{record.electricity || 0}
+                          {record.otherAmount ? ` | Other: ₹${record.otherAmount} (${record.otherDescription})` : ''}
+                        </div>
+                      </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{new Date(record.dueDate).toLocaleDateString()}</td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                         <select
@@ -201,7 +311,7 @@ export default function Rent() {
                         </select>
                       </td>
                       <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                        <button onClick={() => handleDelete(record.id)} className="text-red-600 hover:text-red-900">Delete</button>
+                        <button onClick={() => confirmDelete(record.id)} className="text-red-600 hover:text-red-900">Delete</button>
                       </td>
                     </tr>
                   ))}
@@ -211,6 +321,24 @@ export default function Rent() {
           </div>
         </div>
       </div>
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        title="Delete Rent Record"
+        message="Are you sure you want to delete this rent record? This action cannot be undone."
+        onConfirm={handleDelete}
+        onCancel={() => {
+          setDeleteModalOpen(false);
+          setRentToDelete(null);
+        }}
+      />
+
+      <ConfirmModal
+        isOpen={deleteAllModalOpen}
+        title="Delete All Rent History"
+        message="Are you sure you want to delete ALL rent history for this student? This action cannot be undone."
+        onConfirm={handleDeleteAllForStudent}
+        onCancel={() => setDeleteAllModalOpen(false)}
+      />
     </div>
   );
 }

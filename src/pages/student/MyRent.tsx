@@ -51,7 +51,13 @@ export default function MyRent() {
                   {rentRecords.map((record) => (
                     <tr key={record.id}>
                       <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">{record.month}</td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">₹{record.amount}</td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        ₹{record.amount}
+                        <div className="text-xs text-gray-400">
+                          Basic: ₹{record.basicRent || 0} | Elec: ₹{record.electricity || 0}
+                          {record.otherAmount ? ` | Other: ₹${record.otherAmount} (${record.otherDescription})` : ''}
+                        </div>
+                      </td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{new Date(record.dueDate).toLocaleDateString()}</td>
                       <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
