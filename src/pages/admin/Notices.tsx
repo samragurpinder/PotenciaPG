@@ -20,6 +20,8 @@ export default function Notices() {
       n.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setNotices(n);
       setLoading(false);
+    }, (error) => {
+      console.error("Error fetching notices:", error);
     });
 
     return unsubscribe;

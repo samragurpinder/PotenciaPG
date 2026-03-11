@@ -18,6 +18,9 @@ export default function MyRent() {
       r.sort((a, b) => b.month.localeCompare(a.month)); // Sort by month descending
       setRentRecords(r);
       setLoading(false);
+    }, (error) => {
+      console.error("Error fetching my rent:", error);
+      alert("Error fetching my rent: " + error.message);
     });
 
     return unsubscribe;

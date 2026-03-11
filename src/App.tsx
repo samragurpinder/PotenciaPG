@@ -8,6 +8,7 @@ import Rooms from './pages/admin/Rooms';
 import Rent from './pages/admin/Rent';
 import Complaints from './pages/admin/Complaints';
 import Notices from './pages/admin/Notices';
+import Expenses from './pages/admin/Expenses';
 import StudentDashboard from './pages/student/StudentDashboard';
 import MyRent from './pages/student/MyRent';
 import MyComplaints from './pages/student/MyComplaints';
@@ -58,6 +59,7 @@ function AppRoutes() {
         <Route path="rooms" element={<PrivateRoute allowedRoles={['admin', 'warden']}><Rooms /></PrivateRoute>} />
         <Route path="complaints" element={<PrivateRoute allowedRoles={['admin', 'warden']}><Complaints /></PrivateRoute>} />
         <Route path="notices" element={<PrivateRoute allowedRoles={['admin', 'warden']}><Notices /></PrivateRoute>} />
+        <Route path="expenses" element={<PrivateRoute allowedRoles={['admin', 'warden']}><Expenses /></PrivateRoute>} />
         
         {/* Cook & Admin Routes */}
         <Route path="kitchen" element={<PrivateRoute allowedRoles={['admin', 'cook']}><Menu /></PrivateRoute>} />

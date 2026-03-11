@@ -28,6 +28,8 @@ export default function Rent() {
       const s: any[] = [];
       snapshot.forEach(doc => s.push({ id: doc.id, ...doc.data() }));
       setStudents(s);
+    }, (error) => {
+      console.error("Error fetching students:", error);
     });
 
     // Fetch rent records
@@ -37,6 +39,9 @@ export default function Rent() {
       snapshot.forEach(doc => r.push({ id: doc.id, ...doc.data() }));
       setRentRecords(r);
       setLoading(false);
+    }, (error) => {
+      console.error("Error fetching rent:", error);
+      alert("Error fetching rent: " + error.message);
     });
 
     return () => {
@@ -57,16 +62,20 @@ export default function Rent() {
 
     try {
       const rentId = `${newRent.userId}_${newRent.month}`;
-      const totalAmount = Number(newRent.basicRent) + Number(newRent.electricity) + Number(newRent.otherAmount);
+      const basic = Number.isNaN(Number(newRent.basicRent)) ? 0 : Number(newRent.basicRent);
+      const elec = Number.isNaN(Number(newRent.electricity)) ? 0 : Number(newRent.electricity);
+      const other = Number.isNaN(Number(newRent.otherAmount)) ? 0 : Number(newRent.otherAmount);
+      
+      const totalAmount = basic + elec + other;
       await setDoc(doc(db, 'rent', rentId), {
         userId: newRent.userId,
         userName: student.name,
         month: newRent.month,
         amount: totalAmount,
-        basicRent: Number(newRent.basicRent),
-        electricity: Number(newRent.electricity),
-        otherAmount: Number(newRent.otherAmount),
-        otherDescription: newRent.otherDescription,
+        basicRent: basic,
+        electricity: elec,
+        otherAmount: other,
+        otherDescription: newRent.otherDescription || '',
         status: 'pending',
         dueDate: new Date(newRent.dueDate).toISOString()
       });

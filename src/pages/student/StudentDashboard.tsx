@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, addDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { Utensils, CreditCard, Bell } from 'lucide-react';
+import { Utensils, CreditCard, Bell, Coffee, Star } from 'lucide-react';
 
 export default function StudentDashboard() {
   const { userProfile } = useAuth();
   const [todayMenu, setTodayMenu] = useState<any>(null);
   const [rentStatus, setRentStatus] = useState<any>(null);
   const [notices, setNotices] = useState<any[]>([]);
+  const [rating, setRating] = useState({ mealType: 'breakfast', stars: 5, feedback: '' });
+  const [isSubmittingTea, setIsSubmittingTea] = useState(false);
+  const [isSubmittingRating, setIsSubmittingRating] = useState(false);
 
   useEffect(() => {
     if (!userProfile) return;
@@ -21,17 +24,22 @@ export default function StudentDashboard() {
       } else {
         setTodayMenu(null);
       }
+    }, (error) => {
+      console.error("Error fetching menu:", error);
     });
 
     // Rent Status
     const currentMonth = new Date().toISOString().slice(0, 7);
-    const qRent = query(collection(db, 'rent'), where('userId', '==', userProfile.uid), where('month', '==', currentMonth));
+    const qRent = query(collection(db, 'rent'), where('userId', '==', userProfile.uid));
     const unsubRent = onSnapshot(qRent, (snapshot) => {
-      if (!snapshot.empty) {
-        setRentStatus(snapshot.docs[0].data());
+      const currentMonthRent = snapshot.docs.find(doc => doc.data().month === currentMonth);
+      if (currentMonthRent) {
+        setRentStatus(currentMonthRent.data());
       } else {
         setRentStatus(null);
       }
+    }, (error) => {
+      console.error("Error fetching rent:", error);
     });
 
     // Notices
@@ -40,6 +48,8 @@ export default function StudentDashboard() {
       const n: any[] = [];
       snapshot.forEach(doc => n.push({ id: doc.id, ...doc.data() }));
       setNotices(n);
+    }, (error) => {
+      console.error("Error fetching notices:", error);
     });
 
     return () => {
@@ -48,6 +58,60 @@ export default function StudentDashboard() {
       unsubNotices();
     };
   }, [userProfile]);
+
+  const handleRequestTea = async () => {
+    if (!userProfile) return;
+    setIsSubmittingTea(true);
+    try {
+      await addDoc(collection(db, 'teaRequests'), {
+        userId: userProfile.uid,
+        userName: userProfile.name,
+        roomNumber: userProfile.roomNumber || 'Unknown',
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      });
+      
+      await addDoc(collection(db, 'notifications'), {
+        title: `Tea Request from ${userProfile.name}`,
+        message: `Room ${userProfile.roomNumber || 'Unknown'} has requested tea. Please bring milk to the kitchen.`,
+        type: 'tea_request',
+        targetRole: ['warden', 'cook'],
+        createdAt: new Date().toISOString(),
+        readBy: []
+      });
+      
+      alert("Tea request sent to Warden and Cook!");
+    } catch (error) {
+      console.error("Error requesting tea:", error);
+      alert("Failed to request tea.");
+    } finally {
+      setIsSubmittingTea(false);
+    }
+  };
+
+  const handleRateFood = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userProfile) return;
+    setIsSubmittingRating(true);
+    try {
+      await addDoc(collection(db, 'foodRatings'), {
+        userId: userProfile.uid,
+        userName: userProfile.name,
+        mealType: rating.mealType,
+        date: new Date().toISOString().slice(0, 10),
+        rating: Number(rating.stars),
+        feedback: rating.feedback,
+        createdAt: new Date().toISOString()
+      });
+      alert("Thank you for your feedback!");
+      setRating({ mealType: 'breakfast', stars: 5, feedback: '' });
+    } catch (error) {
+      console.error("Error submitting rating:", error);
+      alert("Failed to submit rating.");
+    } finally {
+      setIsSubmittingRating(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -91,6 +155,73 @@ export default function StudentDashboard() {
           ) : (
             <p className="text-gray-500">No rent record found for this month.</p>
           )}
+        </div>
+
+        {/* Request Tea */}
+        <div className="bg-white shadow rounded-lg p-6">
+          <div className="flex items-center mb-4">
+            <Coffee className="h-6 w-6 text-orange-500 mr-2" />
+            <h2 className="text-lg font-medium text-gray-900">Request Tea</h2>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">Want tea? Raise a request and the warden will be notified to provide milk to the cook.</p>
+          <button 
+            onClick={handleRequestTea} 
+            disabled={isSubmittingTea}
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50"
+          >
+            {isSubmittingTea ? 'Requesting...' : 'Request Tea Now'}
+          </button>
+        </div>
+
+        {/* Rate Food */}
+        <div className="bg-white shadow rounded-lg p-6">
+          <div className="flex items-center mb-4">
+            <Star className="h-6 w-6 text-yellow-400 mr-2" />
+            <h2 className="text-lg font-medium text-gray-900">Rate Today's Food</h2>
+          </div>
+          <form onSubmit={handleRateFood} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Meal</label>
+              <select 
+                value={rating.mealType}
+                onChange={e => setRating({...rating, mealType: e.target.value})}
+                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+              >
+                <option value="breakfast">Breakfast</option>
+                <option value="lunch">Lunch</option>
+                <option value="tea">Tea</option>
+                <option value="dinner">Dinner</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Rating (1-5 Stars)</label>
+              <input 
+                type="number" 
+                min="1" max="5" 
+                required
+                value={rating.stars}
+                onChange={e => setRating({...rating, stars: Number(e.target.value)})}
+                className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Feedback / Problem</label>
+              <textarea 
+                rows={2}
+                value={rating.feedback}
+                onChange={e => setRating({...rating, feedback: e.target.value})}
+                className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="Any issues with the food?"
+              />
+            </div>
+            <button 
+              type="submit"
+              disabled={isSubmittingRating}
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+            >
+              {isSubmittingRating ? 'Submitting...' : 'Submit Rating'}
+            </button>
+          </form>
         </div>
 
         {/* Notice Board */}

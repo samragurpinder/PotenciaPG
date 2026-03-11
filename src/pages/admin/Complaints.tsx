@@ -22,6 +22,9 @@ export default function Complaints() {
       });
       setComplaints(c);
       setLoading(false);
+    }, (error) => {
+      console.error("Error fetching complaints:", error);
+      alert("Error fetching complaints: " + error.message);
     });
 
     return unsubscribe;

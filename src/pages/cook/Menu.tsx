@@ -20,6 +20,8 @@ export default function Menu() {
       m.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setMenus(m);
       setLoading(false);
+    }, (error) => {
+      console.error("Error fetching menu:", error);
     });
 
     return unsubscribe;

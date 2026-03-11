@@ -1,18 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, Home, Users, Bed, CreditCard, Utensils, ClipboardList, MessageSquare, Bell, ShieldCheck } from 'lucide-react';
+import { LogOut, Home, Users, Bed, CreditCard, Utensils, ClipboardList, MessageSquare, Bell, ShieldCheck, Wallet, Key } from 'lucide-react';
 import clsx from 'clsx';
+import ChangePasswordModal from './ChangePasswordModal';
+import NotificationCenter from './NotificationCenter';
 
 export default function Layout() {
   const { userProfile, logout } = useAuth();
   const location = useLocation();
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
   const adminLinks = [
     { name: 'Dashboard', href: '/', icon: Home },
     { name: 'Users', href: '/users', icon: Users },
     { name: 'Rooms', href: '/rooms', icon: Bed },
     { name: 'Rent', href: '/rent', icon: CreditCard },
+    { name: 'Expenses', href: '/expenses', icon: Wallet },
     { name: 'Menu & Inventory', href: '/kitchen', icon: Utensils },
     { name: 'Complaints', href: '/complaints', icon: ClipboardList },
     { name: 'Notices', href: '/notices', icon: Bell },
@@ -21,6 +25,7 @@ export default function Layout() {
   const wardenLinks = [
     { name: 'Dashboard', href: '/', icon: Home },
     { name: 'Rooms', href: '/rooms', icon: Bed },
+    { name: 'Expenses', href: '/expenses', icon: Wallet },
     { name: 'Complaints', href: '/complaints', icon: ClipboardList },
     { name: 'Notices', href: '/notices', icon: Bell },
   ];
@@ -90,24 +95,47 @@ export default function Layout() {
               <p className="text-xs font-medium text-indigo-300 capitalize">{userProfile?.role}</p>
             </div>
           </div>
-          <button
-            onClick={logout}
-            className="w-full flex items-center justify-center px-4 py-2.5 border border-indigo-700 rounded-xl shadow-sm text-sm font-medium text-indigo-100 bg-indigo-800 hover:bg-indigo-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-indigo-900 transition-all"
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign Out
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={() => setIsPasswordModalOpen(true)}
+              className="w-full flex items-center justify-center px-4 py-2 border border-indigo-700 rounded-xl shadow-sm text-sm font-medium text-indigo-100 bg-indigo-800/50 hover:bg-indigo-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-indigo-900 transition-all"
+            >
+              <Key className="mr-2 h-4 w-4" />
+              Change Password
+            </button>
+            <button
+              onClick={logout}
+              className="w-full flex items-center justify-center px-4 py-2 border border-indigo-700 rounded-xl shadow-sm text-sm font-medium text-indigo-100 bg-indigo-800 hover:bg-indigo-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-indigo-900 transition-all"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign Out
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Top Header */}
+        <header className="bg-white shadow-sm z-10">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-end h-16 items-center">
+              <NotificationCenter />
+            </div>
+          </div>
+        </header>
+
         <main className="flex-1 overflow-y-auto p-8">
           <div className="max-w-7xl mx-auto">
             <Outlet />
           </div>
         </main>
       </div>
+
+      <ChangePasswordModal 
+        isOpen={isPasswordModalOpen} 
+        onClose={() => setIsPasswordModalOpen(false)} 
+      />
     </div>
   );
 }

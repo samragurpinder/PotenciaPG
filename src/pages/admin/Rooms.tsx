@@ -19,6 +19,8 @@ export default function Rooms() {
       });
       setRooms(roomsData);
       setLoading(false);
+    }, (error) => {
+      console.error("Error fetching rooms:", error);
     });
 
     return unsubscribe;

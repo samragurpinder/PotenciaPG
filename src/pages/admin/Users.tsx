@@ -3,6 +3,7 @@ import { collection, query, onSnapshot, doc, updateDoc, deleteDoc } from 'fireba
 import { db } from '../../firebase';
 import { UserProfile, useAuth, Role } from '../../contexts/AuthContext';
 import ConfirmModal from '../../components/ConfirmModal';
+import SuccessModal from '../../components/SuccessModal';
 
 export default function Users() {
   const { registerUser } = useAuth();
@@ -14,11 +15,14 @@ export default function Users() {
     name: '',
     mobile: '',
     role: 'student' as Role,
-    roomNumber: ''
+    roomNumber: '',
+    password: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [createdUserDetails, setCreatedUserDetails] = useState<{ username: string; pass: string } | null>(null);
 
   useEffect(() => {
     const qUsers = query(collection(db, 'users'));
@@ -29,6 +33,8 @@ export default function Users() {
       });
       setUsers(usersData);
       setLoading(false);
+    }, (error) => {
+      console.error("Error fetching users:", error);
     });
 
     const qRooms = query(collection(db, 'rooms'));
@@ -38,6 +44,8 @@ export default function Users() {
         roomsData.push({ id: doc.id, ...doc.data() });
       });
       setRooms(roomsData);
+    }, (error) => {
+      console.error("Error fetching rooms:", error);
     });
 
     return () => {
@@ -50,6 +58,11 @@ export default function Users() {
     e.preventDefault();
     if (!newUser.name || !newUser.mobile || newUser.mobile.length < 5) {
       alert("Please provide a valid name and mobile number (at least 5 digits).");
+      return;
+    }
+    
+    if (!/^\d{4}$/.test(newUser.password)) {
+      alert("Password must be exactly 4 numeric digits.");
       return;
     }
     
@@ -67,26 +80,44 @@ export default function Users() {
       const baseName = newUser.name.toLowerCase().replace(/\s+/g, '');
       let username = '';
       
-      if (newUser.role === 'student') {
-        // Find highest running number for this base name
-        const similarUsers = users.filter(u => u.email.startsWith(baseName) && u.email.includes('@'));
-        let maxNum = 0;
-        similarUsers.forEach(u => {
-          const match = u.email.match(new RegExp(`^${baseName}(\\d+)@`));
-          if (match && match[1]) {
-            const num = parseInt(match[1], 10);
-            if (num > maxNum) maxNum = num;
-          }
-        });
-        const nextNum = (maxNum + 1).toString().padStart(3, '0');
-        username = `${baseName}${nextNum}@smartpg.com`;
-      } else {
-        username = `${baseName}@smartpg.com`;
-      }
-
-      const password = `${baseName}${newUser.mobile.substring(0, 5)}`;
+      // Find highest running number for this base name across all users
+      const similarUsers = users.filter(u => u.email.startsWith(baseName) && u.email.includes('@'));
+      let maxNum = 0;
+      similarUsers.forEach(u => {
+        const match = u.email.match(new RegExp(`^${baseName}(\\d+)@`));
+        if (match && match[1]) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        } else if (u.email === `${baseName}@smartpg.com`) {
+          if (maxNum === 0) maxNum = 1; // Base name exists without number
+        }
+      });
       
-      const uid = await registerUser(username, password, newUser.name, newUser.role, newUser.roomNumber, newUser.mobile);
+      const password = newUser.password;
+      let uid = '';
+      let currentMaxNum = maxNum;
+      
+      while (!uid) {
+        if (currentMaxNum > 0 || newUser.role === 'student') {
+          const nextNum = (currentMaxNum + 1).toString().padStart(3, '0');
+          username = `${baseName}${nextNum}@smartpg.com`;
+        } else {
+          username = `${baseName}@smartpg.com`;
+        }
+        
+        try {
+          uid = await registerUser(username, password, newUser.name, newUser.role, newUser.roomNumber, newUser.mobile);
+        } catch (error: any) {
+          if (error.code === 'auth/email-already-in-use') {
+            currentMaxNum++;
+            if (currentMaxNum > maxNum + 20) {
+              throw new Error("Could not generate a unique username. Please try a different name.");
+            }
+          } else {
+            throw error;
+          }
+        }
+      }
       
       if (newUser.role === 'student' && newUser.roomNumber) {
         const roomRef = doc(db, 'rooms', newUser.roomNumber);
@@ -101,8 +132,9 @@ export default function Users() {
       }
 
       const displayUsername = username.split('@')[0];
-      alert(`User created successfully!\nUsername: ${displayUsername}\nPassword: ${password}`);
-      setNewUser({ name: '', mobile: '', role: 'student', roomNumber: '' });
+      setCreatedUserDetails({ username: displayUsername, pass: password });
+      setSuccessModalOpen(true);
+      setNewUser({ name: '', mobile: '', role: 'student', roomNumber: '', password: '' });
     } catch (error: any) {
       console.error("Error adding user:", error);
       alert(error.message || "Failed to add user");
@@ -174,8 +206,8 @@ export default function Users() {
         <div className="px-4 py-5 sm:p-6">
           <h3 className="text-lg leading-6 font-medium text-gray-900">Add New User</h3>
           <div className="mt-2 max-w-xl text-sm text-gray-500">
-            <p>Password will be auto-generated as: [name in lowercase] + [first 5 digits of mobile].</p>
-            <p>Student username will be: [name in lowercase] + [001, 002, etc].</p>
+            <p>Student username will be auto-generated as: [name in lowercase] + [001, 002, etc].</p>
+            <p>Please create a 4-digit numeric password for the user.</p>
           </div>
           <form onSubmit={handleAddUser} className="mt-5">
             <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
@@ -218,6 +250,21 @@ export default function Users() {
                     <option value="cook">Cook</option>
                     <option value="cleaner">Cleaner</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="sm:col-span-3">
+                <label className="block text-sm font-medium text-gray-700">Password (4 Digits)</label>
+                <div className="mt-1">
+                  <input
+                    type="text"
+                    required
+                    maxLength={4}
+                    placeholder="e.g. 1234"
+                    value={newUser.password}
+                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                    className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                  />
                 </div>
               </div>
 
@@ -315,6 +362,17 @@ export default function Users() {
           setDeleteModalOpen(false);
           setUserToDelete(null);
         }}
+      />
+
+      <SuccessModal
+        isOpen={successModalOpen}
+        onClose={() => setSuccessModalOpen(false)}
+        title="User Created Successfully!"
+        message="The new user has been added to the system. Please share these credentials with them."
+        details={createdUserDetails ? [
+          { label: 'Username', value: createdUserDetails.username },
+          { label: 'Password', value: createdUserDetails.pass }
+        ] : undefined}
       />
     </div>
   );

@@ -150,6 +150,56 @@ service cloud.firestore {
              data.timestamp is string;
     }
 
+    function isValidNotification(data) {
+      return hasOnlyAllowedFields(['title', 'message', 'type', 'targetRole', 'createdAt', 'readBy']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.message is string && data.message.size() > 0 && data.message.size() < 1000 &&
+             data.type is string && data.type.size() > 0 && data.type.size() < 50 &&
+             data.targetRole is list &&
+             data.createdAt is string &&
+             data.readBy is list;
+    }
+
+    function isValidTeaRequest(data) {
+      return hasOnlyAllowedFields(['userId', 'userName', 'roomNumber', 'status', 'createdAt']) &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() < 100 &&
+             data.userName is string && data.userName.size() > 0 && data.userName.size() < 100 &&
+             data.roomNumber is string && data.roomNumber.size() < 20 &&
+             data.status in ['pending', 'accepted', 'completed'] &&
+             data.createdAt is string;
+    }
+
+    function isValidInventoryRequest(data) {
+      return hasOnlyAllowedFields(['itemName', 'quantity', 'unit', 'status', 'requestedBy', 'requestedByName', 'createdAt']) &&
+             data.itemName is string && data.itemName.size() > 0 && data.itemName.size() < 100 &&
+             data.quantity is number && data.quantity > 0 &&
+             data.unit is string && data.unit.size() > 0 && data.unit.size() < 20 &&
+             data.status in ['pending', 'ordered', 'fulfilled'] &&
+             data.requestedBy is string && data.requestedBy.size() > 0 && data.requestedBy.size() < 100 &&
+             data.requestedByName is string && data.requestedByName.size() > 0 && data.requestedByName.size() < 100 &&
+             data.createdAt is string;
+    }
+
+    function isValidFoodRating(data) {
+      return hasOnlyAllowedFields(['userId', 'userName', 'mealType', 'date', 'rating', 'feedback', 'createdAt']) &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() < 100 &&
+             data.userName is string && data.userName.size() > 0 && data.userName.size() < 100 &&
+             data.mealType in ['breakfast', 'lunch', 'dinner', 'tea'] &&
+             data.date is string && data.date.size() > 0 && data.date.size() < 20 &&
+             data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+             (!('feedback' in data) || (data.feedback is string && data.feedback.size() < 1000)) &&
+             data.createdAt is string;
+    }
+
+    function isValidActivityLog(data) {
+      return hasOnlyAllowedFields(['action', 'performedBy', 'role', 'details', 'timestamp']) &&
+             data.action is string && data.action.size() > 0 && data.action.size() < 200 &&
+             data.performedBy is string && data.performedBy.size() > 0 && data.performedBy.size() < 100 &&
+             data.role is string && data.role.size() > 0 && data.role.size() < 50 &&
+             (!('details' in data) || (data.details is string && data.details.size() < 1000)) &&
+             data.timestamp is string;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -206,14 +256,50 @@ service cloud.firestore {
     }
 
     match /expenses/{expenseId} {
-      allow read, delete: if isAdmin();
-      allow create, update: if isAdmin() && isValidExpense(request.resource.data);
+      allow read: if isAdmin() || isWarden();
+      allow delete: if isAdmin();
+      allow create, update: if (isAdmin() || isWarden()) && isValidExpense(request.resource.data);
     }
 
     match /chat/{messageId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && isValidChatMessage(request.resource.data) && request.resource.data.senderId == request.auth.uid;
       allow update: if false; // No editing messages
+      allow delete: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidNotification(request.resource.data);
+      allow update: if isAuthenticated() && isValidNotification(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /teaRequests/{requestId} {
+      allow read: if isAuthenticated();
+      allow create: if isStudent() && isValidTeaRequest(request.resource.data) && request.resource.data.userId == request.auth.uid;
+      allow update: if (isAdmin() || isWarden() || isCook()) && isValidTeaRequest(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /inventoryRequests/{requestId} {
+      allow read: if isAdmin() || isWarden() || isCook();
+      allow create: if isCook() && isValidInventoryRequest(request.resource.data);
+      allow update: if (isAdmin() || isWarden() || isCook()) && isValidInventoryRequest(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /foodRatings/{ratingId} {
+      allow read: if isAdmin() || isWarden() || isCook() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isStudent() && isValidFoodRating(request.resource.data) && request.resource.data.userId == request.auth.uid;
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    match /activityLog/{logId} {
+      allow read: if isAdmin() || isWarden();
+      allow create: if isAuthenticated() && isValidActivityLog(request.resource.data);
+      allow update: if false;
       allow delete: if isAdmin();
     }
   }

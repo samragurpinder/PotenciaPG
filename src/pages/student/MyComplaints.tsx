@@ -19,6 +19,9 @@ export default function MyComplaints() {
       c.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setComplaints(c);
       setLoading(false);
+    }, (error) => {
+      console.error("Error fetching my complaints:", error);
+      alert("Error fetching my complaints: " + error.message);
     });
 
     return unsubscribe;

@@ -18,6 +18,8 @@ export default function Inventory() {
       inv.sort((a, b) => a.name.localeCompare(b.name));
       setInventory(inv);
       setLoading(false);
+    }, (error) => {
+      console.error("Error fetching inventory:", error);
     });
 
     return unsubscribe;

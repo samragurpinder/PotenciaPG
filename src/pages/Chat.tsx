@@ -16,6 +16,8 @@ export default function Chat() {
       const m: any[] = [];
       snapshot.forEach(doc => m.push({ id: doc.id, ...doc.data() }));
       setMessages(m.reverse());
+    }, (error) => {
+      console.error("Error fetching chat messages:", error);
     });
 
     return unsubscribe;
