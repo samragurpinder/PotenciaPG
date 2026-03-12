@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { collection, query, where, getDocs, onSnapshot, orderBy, limit, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Users, CreditCard, AlertCircle, Utensils, Activity, Star, ShoppingCart } from 'lucide-react';
+import { motion } from 'motion/react';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -114,132 +115,190 @@ export default function AdminDashboard() {
   };
 
   const cards = [
-    { name: 'Total Students', value: stats.totalStudents, icon: Users, color: 'bg-blue-500' },
-    { name: 'Rent Collected', value: `₹${stats.rentCollected}`, icon: CreditCard, color: 'bg-green-500' },
-    { name: 'Pending Rent', value: `₹${stats.pendingRent}`, icon: CreditCard, color: 'bg-red-500' },
-    { name: 'Open Complaints', value: stats.openComplaints, icon: AlertCircle, color: 'bg-yellow-500' },
-    { name: 'Monthly Expenses', value: `₹${stats.foodBudget}`, icon: Utensils, color: 'bg-purple-500' },
+    { name: 'Total Students', value: stats.totalStudents, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
+    { name: 'Rent Collected', value: `₹${stats.rentCollected.toLocaleString()}`, icon: CreditCard, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
+    { name: 'Pending Rent', value: `₹${stats.pendingRent.toLocaleString()}`, icon: CreditCard, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100' },
+    { name: 'Open Complaints', value: stats.openComplaints, icon: AlertCircle, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
+    { name: 'Monthly Expenses', value: `₹${stats.foodBudget.toLocaleString()}`, icon: Utensils, color: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-100' },
   ];
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold text-gray-900 mb-6">Admin Dashboard</h1>
+    <div className="space-y-10 pb-12">
+      <header>
+        <h1 className="text-4xl font-bold text-slate-900 font-display tracking-tight">Admin Dashboard</h1>
+        <p className="text-slate-500 mt-2">Overview of Nestify operations and performance.</p>
+      </header>
       
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 mb-8">
-        {cards.map((card) => (
-          <div key={card.name} className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className={`rounded-md p-3 ${card.color}`}>
-                    <card.icon className="h-6 w-6 text-white" aria-hidden="true" />
-                  </div>
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">{card.name}</dt>
-                    <dd className="text-2xl font-semibold text-gray-900">{card.value}</dd>
-                  </dl>
-                </div>
-              </div>
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        {cards.map((card, index) => (
+          <motion.div 
+            key={card.name}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.1 }}
+            className={`glass p-6 rounded-3xl border ${card.border} card-hover`}
+          >
+            <div className={`w-12 h-12 rounded-2xl ${card.bg} flex items-center justify-center mb-4 shadow-sm`}>
+              <card.icon className={`h-6 w-6 ${card.color}`} aria-hidden="true" />
             </div>
-          </div>
+            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest leading-none mb-2">{card.name}</p>
+            <p className="text-3xl font-bold text-slate-900 font-display">{card.value}</p>
+          </motion.div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Inventory Requests */}
-        <div className="bg-white shadow rounded-lg p-6 md:col-span-2">
-          <div className="flex items-center mb-4">
-            <ShoppingCart className="h-6 w-6 text-blue-500 mr-2" />
-            <h2 className="text-lg font-medium text-gray-900">Inventory Requests</h2>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.5 }}
+          className="glass p-8 rounded-[2rem] lg:col-span-2"
+        >
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center">
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center mr-4 shadow-sm">
+                <ShoppingCart className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 font-display">Inventory Requests</h2>
+                <p className="text-sm text-slate-500">Items needed for the kitchen</p>
+              </div>
+            </div>
+            <span className="px-4 py-1.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-full uppercase tracking-wider">
+              {inventoryRequests.length} Active
+            </span>
           </div>
+
           {inventoryRequests.length > 0 ? (
-            <ul className="divide-y divide-gray-200">
+            <div className="space-y-4">
               {inventoryRequests.map(req => (
-                <li key={req.id} className="py-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{req.itemName}</p>
-                    <p className="text-sm text-gray-500">Requested: {req.quantity} {req.unit} by {req.requestedByName}</p>
-                    <p className="text-xs text-gray-400 mt-1">{new Date(req.createdAt).toLocaleString()}</p>
+                <div key={req.id} className="p-5 rounded-2xl bg-slate-50/50 border border-slate-100 flex items-center justify-between group hover:bg-white hover:shadow-lg hover:border-brand-100 transition-all duration-300">
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center mr-4 shadow-sm border border-slate-100">
+                      <ShoppingCart className="w-5 h-5 text-slate-400" />
+                    </div>
+                    <div>
+                      <p className="text-base font-bold text-slate-900">{req.itemName}</p>
+                      <p className="text-sm text-slate-500 font-medium">
+                        {req.quantity} {req.unit} <span className="text-slate-300 mx-1">•</span> Requested by {req.requestedByName}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${req.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>
-                      {req.status.toUpperCase()}
+                  <div className="flex items-center space-x-3">
+                    <span className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full ${
+                      req.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                    }`}>
+                      {req.status}
                     </span>
                     {req.status === 'pending' && (
                       <button 
                         onClick={() => updateInventoryRequestStatus(req.id, 'ordered')}
-                        className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                        className="modern-button-secondary py-2 px-4 text-xs font-bold"
                       >
-                        Mark Ordered
+                        Order
                       </button>
                     )}
                     {req.status === 'ordered' && (
                       <button 
                         onClick={() => updateInventoryRequestStatus(req.id, 'fulfilled')}
-                        className="text-green-600 hover:text-green-900 text-sm font-medium"
+                        className="modern-button-primary py-2 px-4 text-xs font-bold"
                       >
-                        Mark Fulfilled
+                        Fulfill
                       </button>
                     )}
                   </div>
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
           ) : (
-            <p className="text-gray-500">No active inventory requests.</p>
+            <div className="py-12 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+              <ShoppingCart className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+              <p className="text-slate-400 font-medium">No active inventory requests.</p>
+            </div>
           )}
-        </div>
+        </motion.div>
 
         {/* Activity Log */}
-        <div className="bg-white shadow rounded-lg p-6">
-          <div className="flex items-center mb-4">
-            <Activity className="h-6 w-6 text-indigo-500 mr-2" />
-            <h2 className="text-lg font-medium text-gray-900">Recent Activity</h2>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.6 }}
+          className="glass p-8 rounded-[2rem]"
+        >
+          <div className="flex items-center mb-8">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center mr-4 shadow-sm">
+              <Activity className="h-6 w-6 text-indigo-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 font-display">Recent Activity</h2>
+              <p className="text-sm text-slate-500">Live PG updates</p>
+            </div>
           </div>
+
           {activityLogs.length > 0 ? (
-            <ul className="divide-y divide-gray-200">
+            <div className="space-y-6 relative before:absolute before:left-[19px] before:top-2 before:bottom-2 before:w-px before:bg-slate-100">
               {activityLogs.map(log => (
-                <li key={log.id} className="py-3">
-                  <p className="text-sm font-medium text-gray-900">{log.action}</p>
-                  <p className="text-sm text-gray-500">by {log.performedBy} ({log.role})</p>
-                  <p className="text-xs text-gray-400 mt-1">{new Date(log.timestamp).toLocaleString()}</p>
-                </li>
+                <div key={log.id} className="relative pl-10">
+                  <div className="absolute left-0 top-1.5 w-10 h-10 rounded-full bg-white border-4 border-slate-50 flex items-center justify-center z-10 shadow-sm">
+                    <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                  </div>
+                  <p className="text-sm font-bold text-slate-900 leading-tight">{log.action}</p>
+                  <p className="text-xs text-slate-500 mt-1 font-medium">by {log.performedBy} <span className="text-slate-300 mx-1">•</span> {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                </div>
               ))}
-            </ul>
+            </div>
           ) : (
-            <p className="text-gray-500">No recent activity.</p>
+            <p className="text-slate-400 font-medium text-center py-8">No recent activity.</p>
           )}
-        </div>
+        </motion.div>
 
         {/* Food Ratings */}
-        <div className="bg-white shadow rounded-lg p-6">
-          <div className="flex items-center mb-4">
-            <Star className="h-6 w-6 text-yellow-400 mr-2" />
-            <h2 className="text-lg font-medium text-gray-900">Recent Food Ratings</h2>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.7 }}
+          className="glass p-8 rounded-[2rem] lg:col-span-3"
+        >
+          <div className="flex items-center mb-8">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center mr-4 shadow-sm">
+              <Star className="h-6 w-6 text-amber-500" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 font-display">Food Ratings</h2>
+              <p className="text-sm text-slate-500">Student feedback on meals</p>
+            </div>
           </div>
+
           {foodRatings.length > 0 ? (
-            <ul className="divide-y divide-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {foodRatings.map(rating => (
-                <li key={rating.id} className="py-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-900 capitalize">{rating.mealType}</p>
+                <div key={rating.id} className="p-5 rounded-2xl bg-slate-50/50 border border-slate-100 hover:bg-white hover:shadow-lg transition-all duration-300">
+                  <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center">
-                      <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                      <span className="ml-1 text-sm font-medium text-gray-700">{rating.rating}/5</span>
+                      <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center mr-3 shadow-sm border border-slate-100">
+                        <Utensils className="w-4 h-4 text-slate-400" />
+                      </div>
+                      <p className="text-sm font-bold text-slate-900 capitalize">{rating.mealType}</p>
+                    </div>
+                    <div className="flex items-center bg-amber-50 px-2 py-1 rounded-lg">
+                      <Star className="h-3.5 w-3.5 text-amber-500 fill-current" />
+                      <span className="ml-1.5 text-xs font-bold text-amber-700">{rating.rating}/5</span>
                     </div>
                   </div>
-                  <p className="text-sm text-gray-500">by {rating.userName}</p>
-                  {rating.feedback && <p className="text-sm text-gray-700 mt-1 italic">"{rating.feedback}"</p>}
-                  <p className="text-xs text-gray-400 mt-1">{new Date(rating.createdAt).toLocaleString()}</p>
-                </li>
+                  <p className="text-xs text-slate-500 font-medium mb-2">by {rating.userName} <span className="text-slate-300 mx-1">•</span> {new Date(rating.createdAt).toLocaleDateString()}</p>
+                  {rating.feedback && (
+                    <div className="relative p-3 bg-white rounded-xl border border-slate-100 italic text-sm text-slate-600">
+                      "{rating.feedback}"
+                    </div>
+                  )}
+                </div>
               ))}
-            </ul>
+            </div>
           ) : (
-            <p className="text-gray-500">No recent ratings.</p>
+            <p className="text-slate-400 font-medium text-center py-8">No recent ratings.</p>
           )}
-        </div>
+        </motion.div>
       </div>
     </div>
   );

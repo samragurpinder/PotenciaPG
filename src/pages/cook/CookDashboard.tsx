@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { collection, query, onSnapshot, doc, addDoc, updateDoc, where } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { Utensils, ClipboardList, Bell, ShoppingCart, Coffee } from 'lucide-react';
+import { Utensils, ClipboardList, Bell, ShoppingCart, Coffee, CheckCircle2, AlertTriangle, Send } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { motion } from 'motion/react';
+import { clsx } from 'clsx';
 
 export default function CookDashboard() {
   const { userProfile } = useAuth();
@@ -125,148 +127,247 @@ export default function CookDashboard() {
   };
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-gray-900">Cook Dashboard</h1>
+    <div className="space-y-10 pb-12">
+      <header>
+        <h1 className="text-4xl font-bold text-slate-900 font-display tracking-tight">Cook Dashboard</h1>
+        <p className="text-slate-500 mt-2">Manage kitchen operations and meal readiness.</p>
+      </header>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Today's Menu */}
-        <div className="bg-white shadow rounded-lg p-6">
-          <div className="flex items-center mb-4">
-            <Utensils className="h-6 w-6 text-indigo-500 mr-2" />
-            <h2 className="text-lg font-medium text-gray-900">Today's Menu</h2>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass p-8 rounded-[2rem] lg:col-span-2 relative overflow-hidden group"
+        >
+          <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-500">
+            <Utensils className="w-32 h-32 text-slate-900" />
           </div>
+          
+          <div className="flex items-center mb-8">
+            <div className="w-12 h-12 rounded-2xl bg-brand-50 flex items-center justify-center mr-4 shadow-sm">
+              <Utensils className="h-6 w-6 text-brand-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 font-display">Today's Menu</h2>
+              <p className="text-sm text-slate-500">Meal preparation plan</p>
+            </div>
+          </div>
+
           {todayMenu ? (
-            <div className="space-y-3">
-              <p><span className="font-medium text-gray-700">Breakfast:</span> {todayMenu.breakfast}</p>
-              <p><span className="font-medium text-gray-700">Lunch:</span> {todayMenu.lunch}</p>
-              <p><span className="font-medium text-gray-700">Dinner:</span> {todayMenu.dinner}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              {[
+                { label: 'Breakfast', value: todayMenu.breakfast, icon: '🍳' },
+                { label: 'Lunch', value: todayMenu.lunch, icon: '🥗' },
+                { label: 'Dinner', value: todayMenu.dinner, icon: '🍲' }
+              ].map((item) => (
+                <div key={item.label} className="p-5 rounded-2xl bg-slate-50/50 border border-slate-100">
+                  <span className="text-2xl mb-3 block">{item.icon}</span>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{item.label}</p>
+                  <p className="text-base font-bold text-slate-900 leading-tight">{item.value}</p>
+                </div>
+              ))}
             </div>
           ) : (
-            <p className="text-gray-500">Menu not updated for today.</p>
+            <div className="py-12 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+              <Utensils className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+              <p className="text-slate-400 font-medium">Menu not updated for today.</p>
+            </div>
           )}
-        </div>
+        </motion.div>
 
         {/* Low Stock Alerts */}
-        <div className="bg-white shadow rounded-lg p-6">
-          <div className="flex items-center mb-4">
-            <ClipboardList className="h-6 w-6 text-red-500 mr-2" />
-            <h2 className="text-lg font-medium text-gray-900">Low Stock Alerts</h2>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="glass p-8 rounded-[2rem]"
+        >
+          <div className="flex items-center mb-8">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center mr-4 shadow-sm">
+              <AlertTriangle className="h-6 w-6 text-rose-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 font-display">Stock Alerts</h2>
+              <p className="text-sm text-slate-500">Items running low</p>
+            </div>
           </div>
+
           {lowStockItems.length > 0 ? (
-            <ul className="divide-y divide-gray-200">
+            <div className="space-y-4">
               {lowStockItems.map(item => (
-                <li key={item.id} className="py-3 flex justify-between">
-                  <span className="text-sm font-medium text-gray-900">{item.name}</span>
-                  <span className="text-sm text-red-600 font-semibold">{item.quantity} {item.unit} left</span>
-                </li>
+                <div key={item.id} className="p-4 rounded-xl bg-rose-50/50 border border-rose-100 flex justify-between items-center">
+                  <span className="text-sm font-bold text-slate-900">{item.name}</span>
+                  <span className="text-xs font-bold text-rose-600 bg-white px-3 py-1 rounded-full shadow-sm border border-rose-100">
+                    {item.quantity} {item.unit}
+                  </span>
+                </div>
               ))}
-            </ul>
+            </div>
           ) : (
-            <p className="text-gray-500">All stock levels are good.</p>
+            <div className="py-12 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+              <CheckCircle2 className="w-12 h-12 text-emerald-200 mx-auto mb-4" />
+              <p className="text-slate-400 font-medium">All stock levels are good.</p>
+            </div>
           )}
-        </div>
+        </motion.div>
+
         {/* Mark Food Ready */}
-        <div className="bg-white shadow rounded-lg p-6 md:col-span-2">
-          <div className="flex items-center mb-4">
-            <Bell className="h-6 w-6 text-yellow-500 mr-2" />
-            <h2 className="text-lg font-medium text-gray-900">Notify Students & Warden</h2>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2 }}
+          className="glass p-8 rounded-[2rem] lg:col-span-2"
+        >
+          <div className="flex items-center mb-6">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center mr-4 shadow-sm">
+              <Bell className="h-6 w-6 text-amber-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 font-display">Notify Readiness</h2>
+              <p className="text-sm text-slate-500">Alert students when food is served</p>
+            </div>
           </div>
-          <p className="text-sm text-gray-500 mb-4">Click a button below to send a notification to all students and the warden that the food is ready.</p>
-          <div className="flex flex-wrap gap-4">
-            <button onClick={() => handleMarkReady('Breakfast')} className="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-md font-medium hover:bg-yellow-200 transition-colors">
-              Breakfast Ready
-            </button>
-            <button onClick={() => handleMarkReady('Lunch')} className="px-4 py-2 bg-green-100 text-green-800 rounded-md font-medium hover:bg-green-200 transition-colors">
-              Lunch Ready
-            </button>
-            <button onClick={() => handleMarkReady('Tea')} className="px-4 py-2 bg-orange-100 text-orange-800 rounded-md font-medium hover:bg-orange-200 transition-colors">
-              Tea Ready
-            </button>
-            <button onClick={() => handleMarkReady('Dinner')} className="px-4 py-2 bg-indigo-100 text-indigo-800 rounded-md font-medium hover:bg-indigo-200 transition-colors">
-              Dinner Ready
-            </button>
+          
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              { label: 'Breakfast', bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-100', hover: 'hover:bg-amber-100' },
+              { label: 'Lunch', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-100', hover: 'hover:bg-emerald-100' },
+              { label: 'Tea', bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-100', hover: 'hover:bg-orange-100' },
+              { label: 'Dinner', bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-100', hover: 'hover:bg-indigo-100' }
+            ].map((meal) => (
+              <button 
+                key={meal.label}
+                onClick={() => handleMarkReady(meal.label)} 
+                className={clsx(
+                  "p-6 rounded-2xl border transition-all duration-300 flex flex-col items-center justify-center gap-3 group",
+                  meal.bg, meal.text, meal.border, meal.hover
+                )}
+              >
+                <Bell className="w-6 h-6 group-hover:animate-bounce" />
+                <span className="text-xs font-bold uppercase tracking-widest">{meal.label}</span>
+              </button>
+            ))}
           </div>
-        </div>
+        </motion.div>
 
         {/* Tea Requests */}
-        <div className="bg-white shadow rounded-lg p-6 md:col-span-2">
-          <div className="flex items-center mb-4">
-            <Coffee className="h-6 w-6 text-orange-500 mr-2" />
-            <h2 className="text-lg font-medium text-gray-900">Active Tea Requests</h2>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.3 }}
+          className="glass p-8 rounded-[2rem] lg:col-span-3"
+        >
+          <div className="flex items-center mb-8">
+            <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center mr-4 shadow-sm">
+              <Coffee className="h-6 w-6 text-orange-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 font-display">Active Tea Requests</h2>
+              <p className="text-sm text-slate-500">Prepare tea for these students</p>
+            </div>
           </div>
+
           {teaRequests.length > 0 ? (
-            <ul className="divide-y divide-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {teaRequests.map(req => (
-                <li key={req.id} className="py-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{req.userName} (Room: {req.roomNumber})</p>
-                    <p className="text-xs text-gray-500">{new Date(req.createdAt).toLocaleString()}</p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${req.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>
-                      {req.status.toUpperCase()}
+                <div key={req.id} className="p-6 rounded-2xl bg-slate-50/50 border border-slate-100 flex flex-col justify-between group hover:bg-white hover:shadow-lg transition-all duration-300">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center mr-3 text-orange-600 font-bold">
+                        {req.userName.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">{req.userName}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Room {req.roomNumber}</p>
+                      </div>
+                    </div>
+                    <span className={clsx(
+                      "px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full",
+                      req.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                    )}>
+                      {req.status}
                     </span>
-                    {req.status === 'pending' && (
-                      <button 
-                        onClick={() => updateTeaRequestStatus(req.id, 'accepted')}
-                        className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
-                      >
-                        Accept
-                      </button>
-                    )}
-                    {req.status === 'accepted' && (
-                      <button 
-                        onClick={() => updateTeaRequestStatus(req.id, 'completed')}
-                        className="text-green-600 hover:text-green-900 text-sm font-medium"
-                      >
-                        Mark Completed
-                      </button>
-                    )}
                   </div>
-                </li>
+                  
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-100">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    <div className="flex space-x-2">
+                      {req.status === 'pending' && (
+                        <button 
+                          onClick={() => updateTeaRequestStatus(req.id, 'accepted')}
+                          className="text-brand-600 hover:text-brand-700 text-[10px] font-bold uppercase tracking-widest"
+                        >
+                          Accept
+                        </button>
+                      )}
+                      {req.status === 'accepted' && (
+                        <button 
+                          onClick={() => updateTeaRequestStatus(req.id, 'completed')}
+                          className="text-emerald-600 hover:text-emerald-700 text-[10px] font-bold uppercase tracking-widest"
+                        >
+                          Complete
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               ))}
-            </ul>
+            </div>
           ) : (
-            <p className="text-gray-500">No active tea requests.</p>
+            <div className="py-12 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+              <Coffee className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+              <p className="text-slate-400 font-medium">No active tea requests.</p>
+            </div>
           )}
-        </div>
+        </motion.div>
 
         {/* Request Inventory */}
-        <div className="bg-white shadow rounded-lg p-6 md:col-span-2">
-          <div className="flex items-center mb-4">
-            <ShoppingCart className="h-6 w-6 text-blue-500 mr-2" />
-            <h2 className="text-lg font-medium text-gray-900">Request Inventory Items</h2>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="glass p-8 rounded-[2rem] lg:col-span-3"
+        >
+          <div className="flex items-center mb-8">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center mr-4 shadow-sm">
+              <ShoppingCart className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 font-display">Request Supplies</h2>
+              <p className="text-sm text-slate-500">Submit requests for kitchen inventory</p>
+            </div>
           </div>
-          <p className="text-sm text-gray-500 mb-4">Need more supplies? Request them here.</p>
-          <form onSubmit={handleRequestInventory} className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+
+          <form onSubmit={handleRequestInventory} className="grid grid-cols-1 sm:grid-cols-4 gap-6">
             <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700">Item Name</label>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Item Name</label>
               <input 
                 type="text" 
                 required
                 value={inventoryRequest.itemName}
                 onChange={e => setInventoryRequest({...inventoryRequest, itemName: e.target.value})}
-                className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="e.g., Rice, Milk, Sugar"
+                className="modern-input"
+                placeholder="e.g., Basmati Rice, Full Cream Milk"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Quantity</label>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Quantity</label>
               <input 
                 type="number" 
                 min="1"
                 required
                 value={inventoryRequest.quantity}
                 onChange={e => setInventoryRequest({...inventoryRequest, quantity: e.target.value})}
-                className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                className="modern-input"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Unit</label>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Unit</label>
               <select 
                 value={inventoryRequest.unit}
                 onChange={e => setInventoryRequest({...inventoryRequest, unit: e.target.value})}
-                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                className="modern-input"
               >
                 <option value="kg">kg</option>
                 <option value="liters">liters</option>
@@ -274,17 +375,22 @@ export default function CookDashboard() {
                 <option value="pieces">pieces</option>
               </select>
             </div>
-            <div className="sm:col-span-4 mt-2">
+            <div className="sm:col-span-4">
               <button 
                 type="submit"
                 disabled={isSubmittingRequest}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                className="modern-button-primary w-full flex items-center justify-center gap-2"
               >
-                {isSubmittingRequest ? 'Requesting...' : 'Submit Request'}
+                {isSubmittingRequest ? 'Submitting...' : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    Submit Inventory Request
+                  </>
+                )}
               </button>
             </div>
           </form>
-        </div>
+        </motion.div>
       </div>
     </div>
   );
