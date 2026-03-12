@@ -3,6 +3,23 @@ import { collection, query, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import ConfirmModal from '../../components/ConfirmModal';
+import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'motion/react';
+import { 
+  IndianRupee, 
+  Plus, 
+  Trash2, 
+  Calendar, 
+  Tag, 
+  FileText, 
+  User, 
+  TrendingDown, 
+  TrendingUp, 
+  Wallet,
+  Clock,
+  Receipt
+} from 'lucide-react';
+import clsx from 'clsx';
 
 export default function Expenses() {
   const { userProfile } = useAuth();
@@ -20,6 +37,7 @@ export default function Expenses() {
   
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
+  const [addModalOpen, setAddModalOpen] = useState(false);
 
   useEffect(() => {
     const qExpenses = query(collection(db, 'expenses'));
@@ -32,6 +50,7 @@ export default function Expenses() {
       setLoading(false);
     }, (error) => {
       console.error("Error fetching expenses:", error);
+      toast.error("Failed to fetch expenses");
       setLoading(false);
     });
 
@@ -53,10 +72,16 @@ export default function Expenses() {
     };
   }, [userProfile]);
 
-  const handleAddExpense = async (e: React.FormEvent) => {
+  const handleAddExpenseClick = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newExpense.category || !newExpense.amount) return;
+    if (!newExpense.category || !newExpense.amount) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+    setAddModalOpen(true);
+  };
 
+  const confirmAddExpense = async () => {
     try {
       const expenseId = `exp_${Date.now()}`;
       const expenseDate = newExpense.useCurrentTime ? new Date().toISOString() : new Date(newExpense.date).toISOString();
@@ -69,6 +94,7 @@ export default function Expenses() {
         addedBy: userProfile?.name || 'Unknown'
       });
       
+      toast.success("Expense added successfully!");
       setNewExpense({
         category: '',
         amount: '',
@@ -78,7 +104,9 @@ export default function Expenses() {
       });
     } catch (error) {
       console.error("Error adding expense:", error);
-      alert("Failed to add expense");
+      toast.error("Failed to add expense");
+    } finally {
+      setAddModalOpen(false);
     }
   };
 
@@ -91,8 +119,10 @@ export default function Expenses() {
     if (!expenseToDelete) return;
     try {
       await deleteDoc(doc(db, 'expenses', expenseToDelete));
+      toast.success("Expense deleted successfully");
     } catch (error) {
       console.error("Error deleting expense:", error);
+      toast.error("Failed to delete expense");
     } finally {
       setDeleteModalOpen(false);
       setExpenseToDelete(null);
@@ -104,181 +134,278 @@ export default function Expenses() {
   const totalEarnings = userProfile?.role === 'admin' ? rents.filter(r => r.status === 'paid').reduce((sum, r) => sum + Number(r.amount), 0) : 0;
   const profitOrLoss = totalEarnings - totalExpenses;
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600"></div>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <div className="sm:flex sm:items-center">
-        <div className="sm:flex-auto">
-          <h1 className="text-2xl font-semibold text-gray-900">PG Expenses & Financials</h1>
-          <p className="mt-2 text-sm text-gray-700">Track all PG expenditures, building rent, cook salary, and view overall profit/loss.</p>
-        </div>
-      </div>
+    <div className="space-y-8 pb-12">
+      <header>
+        <h1 className="text-4xl font-bold text-slate-900 font-display tracking-tight">PG Expenses & Financials</h1>
+        <p className="text-slate-500 mt-2">Track all PG expenditures, building rent, cook salary, and view overall profit/loss.</p>
+      </header>
 
       {userProfile?.role === 'admin' && (
-        <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-3">
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <dt className="text-sm font-medium text-gray-500 truncate">Total Earnings (Paid Rent)</dt>
-              <dd className="mt-1 text-3xl font-semibold text-green-600">₹{totalEarnings.toLocaleString()}</dd>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 mb-8">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="glass overflow-hidden p-6 rounded-[2rem]"
+          >
+            <div className="flex items-center">
+              <div className="p-3 rounded-2xl bg-emerald-100 text-emerald-600">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest truncate">Total Earnings (Paid Rent)</p>
+                <p className="mt-1 text-2xl font-bold text-slate-900 font-display">₹{totalEarnings.toLocaleString()}</p>
+              </div>
             </div>
-          </div>
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <dt className="text-sm font-medium text-gray-500 truncate">Total Expenses</dt>
-              <dd className="mt-1 text-3xl font-semibold text-red-600">₹{totalExpenses.toLocaleString()}</dd>
+          </motion.div>
+
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="glass overflow-hidden p-6 rounded-[2rem]"
+          >
+            <div className="flex items-center">
+              <div className="p-3 rounded-2xl bg-rose-100 text-rose-600">
+                <TrendingDown className="w-6 h-6" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest truncate">Total Expenses</p>
+                <p className="mt-1 text-2xl font-bold text-slate-900 font-display">₹{totalExpenses.toLocaleString()}</p>
+              </div>
             </div>
-          </div>
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <dt className="text-sm font-medium text-gray-500 truncate">Net Profit / Loss</dt>
-              <dd className={`mt-1 text-3xl font-semibold ${profitOrLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {profitOrLoss >= 0 ? '+' : '-'}₹{Math.abs(profitOrLoss).toLocaleString()}
-              </dd>
+          </motion.div>
+
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="glass overflow-hidden p-6 rounded-[2rem]"
+          >
+            <div className="flex items-center">
+              <div className={clsx(
+                "p-3 rounded-2xl",
+                profitOrLoss >= 0 ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
+              )}>
+                <Wallet className="w-6 h-6" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest truncate">Net Profit / Loss</p>
+                <p className={clsx(
+                  "mt-1 text-2xl font-bold font-display",
+                  profitOrLoss >= 0 ? "text-emerald-600" : "text-rose-600"
+                )}>
+                  {profitOrLoss >= 0 ? '+' : '-'}₹{Math.abs(profitOrLoss).toLocaleString()}
+                </p>
+              </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
 
       {/* Add Expense Form */}
-      <div className="mt-8 bg-white shadow px-4 py-5 sm:rounded-lg sm:p-6">
-        <div className="md:grid md:grid-cols-3 md:gap-6">
-          <div className="md:col-span-1">
-            <h3 className="text-lg font-medium leading-6 text-gray-900">Add Expenditure</h3>
-            <p className="mt-1 text-sm text-gray-500">Record money spent on PG maintenance, salaries, groceries, etc.</p>
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="glass p-8 rounded-[2rem]"
+      >
+        <div className="flex items-center mb-8">
+          <div className="w-12 h-12 rounded-2xl bg-brand-50 flex items-center justify-center mr-4 shadow-sm">
+            <Plus className="h-6 w-6 text-brand-600" />
           </div>
-          <div className="mt-5 md:mt-0 md:col-span-2">
-            <form onSubmit={handleAddExpense}>
-              <div className="grid grid-cols-6 gap-6">
-                <div className="col-span-6 sm:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700">Category</label>
-                  <select
-                    required
-                    value={newExpense.category}
-                    onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}
-                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                  >
-                    <option value="">Select Category</option>
-                    <option value="Building Rent">Building Rent</option>
-                    <option value="Cook Salary">Cook Salary</option>
-                    <option value="Groceries">Groceries</option>
-                    <option value="Electricity Bill">Electricity Bill</option>
-                    <option value="Water Bill">Water Bill</option>
-                    <option value="Maintenance">Maintenance</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-                <div className="col-span-6 sm:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700">Amount (₹)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    required
-                    value={newExpense.amount}
-                    onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
-                    className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                  />
-                </div>
-                <div className="col-span-6">
-                  <label className="block text-sm font-medium text-gray-700">Description</label>
-                  <input
-                    type="text"
-                    required
-                    value={newExpense.description}
-                    onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
-                    placeholder="Brief description of the expense"
-                    className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                  />
-                </div>
-                
-                <div className="col-span-6">
-                  <div className="flex items-center mb-2">
-                    <input
-                      id="useCurrentTime"
-                      type="checkbox"
-                      checked={newExpense.useCurrentTime}
-                      onChange={(e) => setNewExpense({ ...newExpense, useCurrentTime: e.target.checked })}
-                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="useCurrentTime" className="ml-2 block text-sm text-gray-900">
-                      Mark date and time as right now
-                    </label>
-                  </div>
-                  {!newExpense.useCurrentTime && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Date and Time of Payment</label>
-                      <input
-                        type="datetime-local"
-                        required={!newExpense.useCurrentTime}
-                        value={newExpense.date}
-                        onChange={(e) => setNewExpense({ ...newExpense, date: e.target.value })}
-                        className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="submit"
-                  className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  Add Expense
-                </button>
-              </div>
-            </form>
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 font-display">Add Expenditure</h2>
+            <p className="text-sm text-slate-500">Record money spent on PG maintenance, salaries, groceries, etc.</p>
           </div>
         </div>
-      </div>
+
+        <form onSubmit={handleAddExpenseClick} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-2">
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Category</label>
+            <select
+              required
+              value={newExpense.category}
+              onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}
+              className="modern-input"
+            >
+              <option value="">Select Category</option>
+              <option value="Building Rent">Building Rent</option>
+              <option value="Cook Salary">Cook Salary</option>
+              <option value="Groceries">Groceries</option>
+              <option value="Electricity Bill">Electricity Bill</option>
+              <option value="Water Bill">Water Bill</option>
+              <option value="Maintenance">Maintenance</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div className="lg:col-span-2">
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Amount (₹)</label>
+            <input
+              type="number"
+              min="0"
+              required
+              value={newExpense.amount}
+              onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
+              className="modern-input"
+              placeholder="0.00"
+            />
+          </div>
+
+          <div className="lg:col-span-4">
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Description</label>
+            <input
+              type="text"
+              required
+              value={newExpense.description}
+              onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
+              placeholder="Brief description of the expense"
+              className="modern-input"
+            />
+          </div>
+          
+          <div className="lg:col-span-4">
+            <div className="flex items-center mb-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+              <input
+                id="useCurrentTime"
+                type="checkbox"
+                checked={newExpense.useCurrentTime}
+                onChange={(e) => setNewExpense({ ...newExpense, useCurrentTime: e.target.checked })}
+                className="h-5 w-5 text-brand-600 focus:ring-brand-500 border-slate-300 rounded cursor-pointer"
+              />
+              <label htmlFor="useCurrentTime" className="ml-3 block text-sm font-bold text-slate-700 cursor-pointer">
+                Mark date and time as right now
+              </label>
+            </div>
+            
+            <AnimatePresence>
+              {!newExpense.useCurrentTime && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Date and Time of Payment</label>
+                  <input
+                    type="datetime-local"
+                    required={!newExpense.useCurrentTime}
+                    value={newExpense.date}
+                    onChange={(e) => setNewExpense({ ...newExpense, date: e.target.value })}
+                    className="modern-input"
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          
+          <div className="lg:col-span-4 flex justify-end mt-2">
+            <button
+              type="submit"
+              className="modern-button-primary px-8"
+            >
+              Add Expense
+            </button>
+          </div>
+        </form>
+      </motion.div>
 
       {/* Expenses List */}
-      <div className="mt-8 flex flex-col">
-        <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
-          <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
-            <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-              <table className="min-w-full divide-y divide-gray-300">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Date & Time</th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Category</th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Description</th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Amount</th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Added By</th>
-                    {userProfile?.role === 'admin' && (
-                      <th className="relative py-3.5 pl-3 pr-4 sm:pr-6"><span className="sr-only">Actions</span></th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 bg-white">
-                  {expenses.map((expense) => (
-                    <tr key={expense.id}>
-                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-500 sm:pl-6">
-                        {new Date(expense.date).toLocaleString()}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm font-medium text-gray-900">{expense.category}</td>
-                      <td className="px-3 py-4 text-sm text-gray-500 max-w-xs truncate" title={expense.description}>{expense.description}</td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm font-semibold text-red-600">₹{expense.amount}</td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{expense.addedBy}</td>
-                      {userProfile?.role === 'admin' && (
-                        <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                          <button onClick={() => confirmDelete(expense.id)} className="text-red-600 hover:text-red-900">Delete</button>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                  {expenses.length === 0 && (
-                    <tr>
-                      <td colSpan={userProfile?.role === 'admin' ? 6 : 5} className="py-4 text-center text-sm text-gray-500">
-                        No expenses recorded yet.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="glass p-8 rounded-[2rem]"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+          <div className="flex items-center">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center mr-4 shadow-sm">
+              <Receipt className="h-6 w-6 text-indigo-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 font-display">Expense History</h2>
+              <p className="text-sm text-slate-500">View and manage all expense entries</p>
             </div>
           </div>
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800 uppercase tracking-widest">
+            {expenses.length} Records
+          </span>
         </div>
-      </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <AnimatePresence>
+            {expenses.map((expense) => (
+              <motion.div 
+                key={expense.id}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="p-6 rounded-2xl bg-slate-50/50 border border-slate-100 hover:bg-white hover:shadow-lg transition-all duration-300 flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-200 text-slate-800 uppercase tracking-widest">
+                      {expense.category}
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      {new Date(expense.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <p className="text-3xl font-bold text-rose-600 font-display">₹{Number(expense.amount).toLocaleString()}</p>
+                    <p className="mt-2 text-sm text-slate-600 line-clamp-2" title={expense.description}>
+                      {expense.description}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Added By</span>
+                    <div className="flex items-center text-sm font-medium text-slate-700">
+                      <User className="w-3 h-3 mr-1 text-slate-400" />
+                      {expense.addedBy}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center text-xs font-medium text-slate-500">
+                      <Clock className="w-3 h-3 mr-1 text-slate-400" />
+                      {new Date(expense.date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                    {userProfile?.role === 'admin' && (
+                      <button 
+                        onClick={() => confirmDelete(expense.id)} 
+                        className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                        title="Delete Expense"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+          
+          {expenses.length === 0 && (
+            <div className="col-span-full py-12 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+              <FileText className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+              <p className="text-slate-400 font-medium">No expenses recorded yet.</p>
+            </div>
+          )}
+        </div>
+      </motion.div>
 
       <ConfirmModal
         isOpen={deleteModalOpen}
@@ -289,6 +416,15 @@ export default function Expenses() {
           setDeleteModalOpen(false);
           setExpenseToDelete(null);
         }}
+      />
+
+      <ConfirmModal
+        isOpen={addModalOpen}
+        title="Confirm Expense"
+        message={`Are you sure you want to add an expense of ₹${newExpense.amount} for ${newExpense.category}?`}
+        onConfirm={confirmAddExpense}
+        onCancel={() => setAddModalOpen(false)}
+        confirmText="Add Expense"
       />
     </div>
   );

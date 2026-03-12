@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db, secondaryAuth } from '../firebase';
 import { onAuthStateChanged, User as FirebaseUser, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { ShieldCheck } from 'lucide-react';
 
 export type Role = 'admin' | 'warden' | 'cook' | 'student' | 'cleaner';
 
@@ -180,7 +181,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={{ currentUser, userProfile, loading, login, logout, registerUser, changePassword }}>
-      {!loading && children}
+      {loading ? (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50/50">
+          <div className="relative w-24 h-24">
+            <div className="absolute inset-0 rounded-full border-t-4 border-brand-500 animate-spin"></div>
+            <div className="absolute inset-2 rounded-full border-r-4 border-indigo-500 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+            <div className="absolute inset-4 rounded-full border-b-4 border-rose-500 animate-spin" style={{ animationDuration: '2s' }}></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <ShieldCheck className="w-8 h-8 text-brand-600 animate-pulse" />
+            </div>
+          </div>
+          <h2 className="mt-6 text-2xl font-bold text-slate-900 font-display tracking-tight">Nestify</h2>
+          <p className="text-sm text-slate-500 font-medium mt-2 animate-pulse">Loading your workspace...</p>
+        </div>
+      ) : children}
     </AuthContext.Provider>
   );
 }

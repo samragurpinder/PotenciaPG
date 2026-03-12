@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { collection, query, where, onSnapshot, doc, addDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, addDoc, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Utensils, CreditCard, Bell, Coffee, Star } from 'lucide-react';
 import { motion } from 'motion/react';
 import { clsx } from 'clsx';
+import toast from 'react-hot-toast';
 
 export default function StudentDashboard() {
   const { userProfile } = useAuth();
@@ -65,6 +66,27 @@ export default function StudentDashboard() {
     if (!userProfile) return;
     setIsSubmittingTea(true);
     try {
+      // Check last request
+      const q = query(
+        collection(db, 'teaRequests'), 
+        where('userId', '==', userProfile.uid),
+        orderBy('createdAt', 'desc'),
+        limit(1)
+      );
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        const lastRequest = snapshot.docs[0].data();
+        const lastRequestTime = new Date(lastRequest.createdAt).getTime();
+        const currentTime = new Date().getTime();
+        const twoHoursInMs = 2 * 60 * 60 * 1000;
+        
+        if (currentTime - lastRequestTime < twoHoursInMs) {
+          toast.error("You can only request tea once every 2 hours. Request already sent!");
+          setIsSubmittingTea(false);
+          return;
+        }
+      }
+
       await addDoc(collection(db, 'teaRequests'), {
         userId: userProfile.uid,
         userName: userProfile.name,
@@ -82,10 +104,10 @@ export default function StudentDashboard() {
         readBy: []
       });
       
-      alert("Tea request sent to Warden and Cook!");
+      toast.success("Tea request sent to Warden and Cook!");
     } catch (error) {
       console.error("Error requesting tea:", error);
-      alert("Failed to request tea.");
+      toast.error("Failed to request tea.");
     } finally {
       setIsSubmittingTea(false);
     }
@@ -105,11 +127,11 @@ export default function StudentDashboard() {
         feedback: rating.feedback,
         createdAt: new Date().toISOString()
       });
-      alert("Thank you for your feedback!");
+      toast.success("Thank you for your feedback!");
       setRating({ mealType: 'breakfast', stars: 5, feedback: '' });
     } catch (error) {
       console.error("Error submitting rating:", error);
-      alert("Failed to submit rating.");
+      toast.error("Failed to submit rating.");
     } finally {
       setIsSubmittingRating(false);
     }
@@ -156,11 +178,16 @@ export default function StudentDashboard() {
           {todayMenu ? (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               {[
-                { label: 'Breakfast', value: todayMenu.breakfast, icon: '🍳' },
-                { label: 'Lunch', value: todayMenu.lunch, icon: '🥗' },
-                { label: 'Dinner', value: todayMenu.dinner, icon: '🍲' }
+                { label: 'Breakfast', value: todayMenu.breakfast, icon: '🍳', prepared: todayMenu.breakfastPrepared },
+                { label: 'Lunch', value: todayMenu.lunch, icon: '🥗', prepared: todayMenu.lunchPrepared },
+                { label: 'Dinner', value: todayMenu.dinner, icon: '🍲', prepared: todayMenu.dinnerPrepared }
               ].map((item) => (
-                <div key={item.label} className="p-5 rounded-2xl bg-slate-50/50 border border-slate-100 hover:bg-white hover:shadow-lg transition-all duration-300">
+                <div key={item.label} className="p-5 rounded-2xl bg-slate-50/50 border border-slate-100 hover:bg-white hover:shadow-lg transition-all duration-300 relative">
+                  {item.prepared && (
+                    <div className="absolute top-4 right-4 bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full">
+                      Prepared
+                    </div>
+                  )}
                   <span className="text-2xl mb-3 block">{item.icon}</span>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{item.label}</p>
                   <p className="text-base font-bold text-slate-900 leading-tight">{item.value}</p>

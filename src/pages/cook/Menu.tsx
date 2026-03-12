@@ -3,6 +3,9 @@ import { collection, query, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import ConfirmModal from '../../components/ConfirmModal';
+import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'motion/react';
+import { Calendar, Coffee, Utensils, UtensilsCrossed, Plus, Trash2, FileText } from 'lucide-react';
 
 export default function Menu() {
   const { userProfile } = useAuth();
@@ -22,6 +25,8 @@ export default function Menu() {
       setLoading(false);
     }, (error) => {
       console.error("Error fetching menu:", error);
+      toast.error("Failed to fetch menu");
+      setLoading(false);
     });
 
     return unsubscribe;
@@ -29,7 +34,10 @@ export default function Menu() {
 
   const handleAddMenu = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMenu.date) return;
+    if (!newMenu.date) {
+      toast.error("Please select a date");
+      return;
+    }
     
     try {
       await setDoc(doc(db, 'menu', newMenu.date), {
@@ -40,10 +48,11 @@ export default function Menu() {
         updatedBy: userProfile?.name || 'Unknown',
         updatedAt: new Date().toISOString()
       });
+      toast.success("Menu updated successfully!");
       setNewMenu({ date: new Date().toISOString().slice(0, 10), breakfast: '', lunch: '', dinner: '' });
     } catch (error) {
       console.error("Error adding menu:", error);
-      alert("Failed to update menu");
+      toast.error("Failed to update menu");
     }
   };
 
@@ -56,115 +65,208 @@ export default function Menu() {
     if (!menuToDelete) return;
     try {
       await deleteDoc(doc(db, 'menu', menuToDelete));
+      toast.success("Menu deleted successfully");
     } catch (error) {
       console.error("Error deleting menu:", error);
+      toast.error("Failed to delete menu");
     } finally {
       setDeleteModalOpen(false);
       setMenuToDelete(null);
     }
   };
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <div className="sm:flex sm:items-center">
-        <div className="sm:flex-auto">
-          <h1 className="text-2xl font-semibold text-gray-900">Daily Menu</h1>
-          <p className="mt-2 text-sm text-gray-700">Update the breakfast, lunch, and dinner menu.</p>
-        </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Daily Menu</h1>
+        <p className="mt-2 text-sm text-slate-500">Update the breakfast, lunch, and dinner menu.</p>
       </div>
 
       {/* Add Menu Form */}
-      <div className="mt-6 bg-white shadow px-4 py-5 sm:rounded-lg sm:p-6">
-        <div className="md:grid md:grid-cols-3 md:gap-6">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white/80 backdrop-blur-xl shadow-sm border border-slate-200/60 rounded-3xl p-6 sm:p-8 mb-8"
+      >
+        <div className="md:grid md:grid-cols-3 md:gap-8">
           <div className="md:col-span-1">
-            <h3 className="text-lg font-medium leading-6 text-gray-900">Update Menu</h3>
-            <p className="mt-1 text-sm text-gray-500">Set the menu for a specific date.</p>
+            <h3 className="text-xl font-semibold text-slate-900">Update Menu</h3>
+            <p className="mt-2 text-sm text-slate-500">Set the menu for a specific date.</p>
           </div>
-          <div className="mt-5 md:mt-0 md:col-span-2">
-            <form onSubmit={handleAddMenu}>
-              <div className="grid grid-cols-6 gap-6">
-                <div className="col-span-6 sm:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700">Date</label>
-                  <input
-                    type="date"
-                    required
-                    value={newMenu.date}
-                    onChange={(e) => setNewMenu({ ...newMenu, date: e.target.value })}
-                    className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                  />
+          <div className="mt-6 md:mt-0 md:col-span-2">
+            <form onSubmit={handleAddMenu} className="space-y-6">
+              <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                <div className="sm:col-span-3">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Date</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Calendar className="h-5 w-5 text-slate-400" />
+                    </div>
+                    <input
+                      type="date"
+                      required
+                      value={newMenu.date}
+                      onChange={(e) => setNewMenu({ ...newMenu, date: e.target.value })}
+                      className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white/50 backdrop-blur-sm transition-all duration-200"
+                    />
+                  </div>
                 </div>
-                <div className="col-span-6">
-                  <label className="block text-sm font-medium text-gray-700">Breakfast</label>
-                  <input
-                    type="text"
-                    required
-                    value={newMenu.breakfast}
-                    onChange={(e) => setNewMenu({ ...newMenu, breakfast: e.target.value })}
-                    className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                  />
+                
+                <div className="sm:col-span-6">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Breakfast</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Coffee className="h-5 w-5 text-slate-400" />
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={newMenu.breakfast}
+                      onChange={(e) => setNewMenu({ ...newMenu, breakfast: e.target.value })}
+                      placeholder="e.g., Poha, Tea"
+                      className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white/50 backdrop-blur-sm transition-all duration-200"
+                    />
+                  </div>
                 </div>
-                <div className="col-span-6">
-                  <label className="block text-sm font-medium text-gray-700">Lunch</label>
-                  <input
-                    type="text"
-                    required
-                    value={newMenu.lunch}
-                    onChange={(e) => setNewMenu({ ...newMenu, lunch: e.target.value })}
-                    className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                  />
+                
+                <div className="sm:col-span-6">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Lunch</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Utensils className="h-5 w-5 text-slate-400" />
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={newMenu.lunch}
+                      onChange={(e) => setNewMenu({ ...newMenu, lunch: e.target.value })}
+                      placeholder="e.g., Dal, Rice, Roti, Sabzi"
+                      className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white/50 backdrop-blur-sm transition-all duration-200"
+                    />
+                  </div>
                 </div>
-                <div className="col-span-6">
-                  <label className="block text-sm font-medium text-gray-700">Dinner</label>
-                  <input
-                    type="text"
-                    required
-                    value={newMenu.dinner}
-                    onChange={(e) => setNewMenu({ ...newMenu, dinner: e.target.value })}
-                    className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                  />
+                
+                <div className="sm:col-span-6">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Dinner</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <UtensilsCrossed className="h-5 w-5 text-slate-400" />
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={newMenu.dinner}
+                      onChange={(e) => setNewMenu({ ...newMenu, dinner: e.target.value })}
+                      placeholder="e.g., Paneer, Roti, Salad"
+                      className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white/50 backdrop-blur-sm transition-all duration-200"
+                    />
+                  </div>
                 </div>
               </div>
-              <div className="mt-4 flex justify-end">
+              
+              <div className="flex justify-end pt-4">
                 <button
                   type="submit"
-                  className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-sm font-medium rounded-2xl text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-sm transition-all duration-200 hover:shadow-md"
                 >
+                  <Plus className="w-5 h-5 mr-2" />
                   Save Menu
                 </button>
               </div>
             </form>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Menu List */}
-      <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {menus.map((menu) => (
-          <div key={menu.id} className="bg-white shadow overflow-hidden sm:rounded-lg p-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="text-lg leading-6 font-medium text-gray-900">{new Date(menu.date).toLocaleDateString()}</h3>
-                <p className="mt-1 max-w-2xl text-xs text-gray-500">
-                  Updated by {menu.updatedBy}
-                </p>
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+      >
+        <AnimatePresence>
+          {menus.map((menu) => (
+            <motion.div 
+              key={menu.id}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white/80 backdrop-blur-xl shadow-sm border border-slate-200/60 rounded-3xl p-6 hover:shadow-md transition-all duration-300"
+            >
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 flex items-center">
+                    <Calendar className="w-5 h-5 mr-2 text-indigo-500" />
+                    {new Date(menu.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Updated by {menu.updatedBy}
+                  </p>
+                </div>
+                {userProfile?.role === 'admin' && (
+                  <button 
+                    onClick={() => confirmDelete(menu.id)} 
+                    className="text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 p-2 rounded-xl transition-colors duration-200"
+                    title="Delete Menu"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
-              {userProfile?.role === 'admin' && (
-                <button onClick={() => confirmDelete(menu.id)} className="text-red-600 hover:text-red-900 text-sm font-medium">Delete</button>
-              )}
-            </div>
-            <div className="mt-4 space-y-2 text-sm text-gray-900">
-              <p><span className="font-semibold">Breakfast:</span> {menu.breakfast}</p>
-              <p><span className="font-semibold">Lunch:</span> {menu.lunch}</p>
-              <p><span className="font-semibold">Dinner:</span> {menu.dinner}</p>
-            </div>
-          </div>
-        ))}
+              
+              <div className="space-y-4 mt-6">
+                <div className="flex items-start">
+                  <div className="p-2 bg-amber-50 rounded-xl mr-3">
+                    <Coffee className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Breakfast</p>
+                    <p className="text-sm font-medium text-slate-900 mt-0.5">{menu.breakfast}</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start">
+                  <div className="p-2 bg-emerald-50 rounded-xl mr-3">
+                    <Utensils className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Lunch</p>
+                    <p className="text-sm font-medium text-slate-900 mt-0.5">{menu.lunch}</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start">
+                  <div className="p-2 bg-indigo-50 rounded-xl mr-3">
+                    <UtensilsCrossed className="w-4 h-4 text-indigo-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Dinner</p>
+                    <p className="text-sm font-medium text-slate-900 mt-0.5">{menu.dinner}</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+        
         {menus.length === 0 && (
-          <p className="text-gray-500 text-center py-4 col-span-full">No menus found.</p>
+          <div className="col-span-full py-12 text-center bg-white/50 backdrop-blur-sm rounded-3xl border border-dashed border-slate-300">
+            <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+            <p className="text-slate-500 font-medium">No menus recorded yet.</p>
+            <p className="text-sm text-slate-400 mt-1">Add a menu using the form above.</p>
+          </div>
         )}
-      </div>
+      </motion.div>
+
       <ConfirmModal
         isOpen={deleteModalOpen}
         title="Delete Menu"

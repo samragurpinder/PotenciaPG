@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, onSnapshot, doc, addDoc, updateDoc, where } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, addDoc, updateDoc, where, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Utensils, ClipboardList, Bell, ShoppingCart, Coffee, CheckCircle2, AlertTriangle, Send } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { motion } from 'motion/react';
 import { clsx } from 'clsx';
+import toast from 'react-hot-toast';
 
 export default function CookDashboard() {
   const { userProfile } = useAuth();
@@ -13,6 +14,12 @@ export default function CookDashboard() {
   const [inventoryRequest, setInventoryRequest] = useState({ itemName: '', quantity: '', unit: 'kg' });
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const [teaRequests, setTeaRequests] = useState<any[]>([]);
+  const [mealCounts, setMealCounts] = useState<Record<string, number>>({
+    Breakfast: 0,
+    Lunch: 0,
+    Tea: 0,
+    Dinner: 0
+  });
 
   useEffect(() => {
     // Today's Menu
@@ -52,14 +59,48 @@ export default function CookDashboard() {
       console.error("Error fetching tea requests:", error);
     });
 
+    // Meal Readiness Counts
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const qActivity = query(
+      collection(db, 'activityLog'),
+      where('role', '==', 'cook'),
+      where('timestamp', '>=', startOfDay.toISOString())
+    );
+    const unsubActivity = onSnapshot(qActivity, (snapshot) => {
+      const counts: Record<string, number> = { Breakfast: 0, Lunch: 0, Tea: 0, Dinner: 0 };
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.action === 'Marked Breakfast as ready') counts.Breakfast++;
+        if (data.action === 'Marked Lunch as ready') counts.Lunch++;
+        if (data.action === 'Marked Tea as ready') counts.Tea++;
+        if (data.action === 'Marked Dinner as ready') counts.Dinner++;
+      });
+      setMealCounts(counts);
+    });
+
     return () => {
       unsubMenu();
       unsubInventory();
       unsubTea();
+      unsubActivity();
     };
   }, []);
 
   const handleMarkReady = async (meal: string) => {
+    if (meal !== 'Tea' && mealCounts[meal] >= 1) {
+      toast.error(`${meal} can only be marked ready once per day.`);
+      return;
+    }
+    if (meal === 'Tea' && mealCounts[meal] >= 3) {
+      toast.error(`Tea can only be marked ready 3 times per day.`);
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to mark ${meal} as ready? This action cannot be undone.`)) {
+      return;
+    }
+
     try {
       await addDoc(collection(db, 'notifications'), {
         title: `${meal} is Ready!`,
@@ -76,11 +117,18 @@ export default function CookDashboard() {
         role: 'cook',
         timestamp: new Date().toISOString()
       });
+
+      // Update menu prepared status
+      const today = new Date().toISOString().slice(0, 10);
+      const menuRef = doc(db, 'menu', today);
+      await setDoc(menuRef, {
+        [`${meal.toLowerCase()}Prepared`]: true
+      }, { merge: true });
       
-      alert(`${meal} marked as ready. Notifications sent!`);
+      toast.success(`${meal} marked as ready. Notifications sent!`);
     } catch (error) {
       console.error("Error sending notification:", error);
-      alert("Failed to send notification.");
+      toast.error("Failed to send notification.");
     }
   };
 
@@ -108,11 +156,11 @@ export default function CookDashboard() {
         readBy: []
       });
       
-      alert("Inventory request sent to Warden and Admin!");
+      toast.success("Inventory request sent to Warden and Admin!");
       setInventoryRequest({ itemName: '', quantity: '', unit: 'kg' });
     } catch (error) {
       console.error("Error requesting inventory:", error);
-      alert("Failed to request inventory.");
+      toast.error("Failed to request inventory.");
     } finally {
       setIsSubmittingRequest(false);
     }
@@ -121,8 +169,10 @@ export default function CookDashboard() {
   const updateTeaRequestStatus = async (id: string, status: string) => {
     try {
       await updateDoc(doc(db, 'teaRequests', id), { status });
+      toast.success(`Tea request ${status}.`);
     } catch (error) {
       console.error("Error updating tea request:", error);
+      toast.error("Failed to update tea request.");
     }
   };
 
